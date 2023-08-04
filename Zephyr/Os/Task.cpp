@@ -40,7 +40,13 @@ namespace Os {
             return TASK_ERROR_RESOURCES;
         }
 
-        k_tid_t tid = k_thread_create(thread, stack, stackSize, zephyrEntryWrapper, &this->m_routineWrapper, nullptr, nullptr, 0, 0, K_NO_WAIT);
+        // Zephyr priroties range from -16 to +14
+        if (priority > 14) {
+            printk("Priority of %d exceeds maximum value. Setting to a priority value of 14.\n");
+            priority = 14;
+        }
+
+        k_tid_t tid = k_thread_create(thread, stack, stackSize, zephyrEntryWrapper, &this->m_routineWrapper, nullptr, nullptr, priority, 0, K_NO_WAIT);
 #ifdef CONFIG_THREAD_NAME
         int ret = k_thread_name_set(thread, this->m_name.toChar());
         FW_ASSERT(ret == 0, ret);
