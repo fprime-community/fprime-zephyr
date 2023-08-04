@@ -3,11 +3,11 @@ cmake_minimum_required(VERSION 3.13)
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Zephyr")
     set(SOURCE_FILES
         # Common implementations
-        # "${FPRIME_FRAMEWORK_PATH}/Os/LogPrintf.cpp"
         "${FPRIME_FRAMEWORK_PATH}/Os/Pthreads/BufferQueueCommon.cpp"
         # Baremetal
         "${FPRIME_FRAMEWORK_PATH}/Os/Baremetal/SystemResources.cpp"
         # Custom
+        "${CMAKE_CURRENT_LIST_DIR}/LogPrintk.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/Mutex.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/Queue.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/IntervalTimer.cpp"

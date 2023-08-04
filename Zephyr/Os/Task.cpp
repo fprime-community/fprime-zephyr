@@ -1,4 +1,5 @@
 #include <Os/Task.hpp>
+#include <Fw/Logger/Logger.hpp>
 #include <Fw/Types/Assert.hpp>
 
 #include <zephyr/kernel.h>
@@ -42,7 +43,7 @@ namespace Os {
 
         // Zephyr priroties range from -16 to +14
         if (priority > 14) {
-            printk("Priority of %d exceeds maximum value. Setting to a priority value of 14.\n");
+            Fw::Logger::logMsg("Priority of %d exceeds maximum value. Setting to a priority value of 14.\n", priority);
             priority = 14;
         }
 
