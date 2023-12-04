@@ -1,5 +1,5 @@
 // ======================================================================
-// \title  ZephyrTimeImpl.hpp
+// \title  ZephyrTime.hpp
 // \author ethanchee
 // \brief  hpp file for ZephyrTime component implementation class
 // ======================================================================
@@ -7,15 +7,15 @@
 #ifndef ZEPHYRTIMEIMPL_HPP_
 #define ZEPHYRTIMEIMPL_HPP_
 
-#include <Svc/Time/TimeComponentAc.hpp>
+#include <Zephyr/ZephyrTime/ZephyrTimeComponentAc.hpp>
 #include <zephyr/posix/time.h>
 
-namespace Svc {
+namespace Zephyr {
 
-class ZephyrTimeImpl: public TimeComponentBase {
+class ZephyrTime: public ZephyrTimeComponentBase {
     public:
-        ZephyrTimeImpl(const char* compName);
-        virtual ~ZephyrTimeImpl();
+        ZephyrTime(const char* compName);
+        virtual ~ZephyrTime();
         void init(NATIVE_INT_TYPE instance);
     protected:
         void timeGetPort_handler(

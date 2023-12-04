@@ -1,18 +1,18 @@
 // ======================================================================
-// \title  ZephyrTimeImpl.cpp
+// \title  ZephyrTime.cpp
 // \author ethanchee
 // \brief  cpp file for ZephyrTime component implementation class
 // ======================================================================
 
-#include <Zephyr/ZephyrTime/ZephyrTimeImpl.hpp>
+#include <Zephyr/ZephyrTime/ZephyrTime.hpp>
 #include <Fw/Time/Time.hpp>
 
-namespace Svc {
+namespace Zephyr {
 
-    ZephyrTimeImpl::ZephyrTimeImpl(const char* name) : TimeComponentBase(name) {} 
-    ZephyrTimeImpl::~ZephyrTimeImpl() {}
+    ZephyrTime::ZephyrTime(const char* name) : ZephyrTimeComponentBase(name) {} 
+    ZephyrTime::~ZephyrTime() {}
 
-    void ZephyrTimeImpl::timeGetPort_handler(
+    void ZephyrTime::timeGetPort_handler(
         NATIVE_INT_TYPE portNum, /*!< The port number*/
         Fw::Time &time /*!< The time to set */
     ) {
@@ -21,7 +21,7 @@ namespace Svc {
         time.set(TB_PROC_TIME,0, stime.tv_sec, stime.tv_nsec/1000);
     }
 
-    void ZephyrTimeImpl::init(NATIVE_INT_TYPE instance) {
-        TimeComponentBase::init(instance);
+    void ZephyrTime::init(NATIVE_INT_TYPE instance) {
+        ZephyrTimeComponentBase::init(instance);
     }
 }
