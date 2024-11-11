@@ -8,7 +8,7 @@
 #define ZephyrRateDriver_HPP
 
 #include "Zephyr/Drv/ZephyrRateDriver/ZephyrRateDriverComponentAc.hpp"
-#include <Svc/Cycle/TimerVal.hpp>
+#include <Os/RawTime.hpp>
 #include <zephyr/kernel.h>
 
 namespace Zephyr {
@@ -60,7 +60,7 @@ namespace Zephyr {
     PRIVATE:
 
         //!< Last time of run
-        Svc::TimerVal m_last;
+        Os::RawTime m_last;
         static ZephyrRateDriver* s_driver;
         struct k_timer s_itimer;
 

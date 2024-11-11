@@ -4,7 +4,7 @@
 // \brief  cpp file for ZephyrTime component implementation class
 // ======================================================================
 
-#include <Zephyr/ZephyrTime/ZephyrTime.hpp>
+#include <Zephyr/Svc/ZephyrTime/ZephyrTime.hpp>
 #include <Fw/Time/Time.hpp>
 
 namespace Zephyr {

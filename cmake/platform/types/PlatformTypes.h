@@ -13,30 +13,7 @@
 #ifndef PLATFORM_TYPES_H_
 #define PLATFORM_TYPES_H_
 
-// Section 0: C Standard Types
-//    fprime depends on the existence of intN_t and uintN_t C standard ints and
-//    the mix/max values for those types. Platform developers must either:
-//    1. define these types and definitions
-//    2. include headers that define these types
-//
-// In addition, support for various type widths can be turned on/off with the
-// switches in this section to control which of the C standard types are
-// available in the system. fprime consumes this information and produces the
-// UN, IN, and FN types we see in fprime code.
-#include <inttypes.h>
-#include <stdint.h>
-
-// These includes are needed for `k_tid_t`. Remarks:
-//   1) Including <zephyr/kernel.h> doesn't work out of the box because it depends on
-//      compile-time generated `syscall_list.h` which is why the cherrypicked headers
-//      are below are used.
-//   2) #undef CRC is needed because the CRC defined in `stm32h723xx.h` HAL header
-//      conflicts with `CmdSequencerImpl` internal CRC struct.
-#include <zephyr/kernel_structs.h>
-#include <zephyr/arch/cpu.h>
-#include <zephyr/kernel/thread.h>
-#undef CRC
-typedef k_tid_t TaskIdRepr;
+#include "FprimeZephyr.hpp"
 
 // Define what types and checks are supported by this platform.
 // TODO: This should be propagated from Zephyr, but as of F Prime v3.2.0,
@@ -45,13 +22,6 @@ typedef k_tid_t TaskIdRepr;
 #define FW_HAS_32_BIT 1                   //!< Architecture supports 32 bit integers
 #define FW_HAS_16_BIT 1                   //!< Architecture supports 16 bit integers
 #define FW_HAS_F64 1                      //!< Architecture supports 64 bit floating point numbers
-
-#define SKIP_FLOAT_IEEE_754_COMPLIANCE 0  //!<  Check IEEE 754 compliance of floating point arithmetic
-
-// Section 1: Logical Types
-//    fprime requires platform implementors to define logical types for their
-//    system. The list of logical types can be found in the document:
-//    docs/Design/numerical-types.md with the names of the form "Platform*"
 
 typedef int PlatformIntType;
 #define PRI_PlatformIntType "d"
@@ -65,8 +35,17 @@ typedef PlatformIntType PlatformIndexType;
 typedef PlatformUIntType PlatformSizeType;
 #define PRI_PlatformSizeType PRI_PlatformUIntType
 
+typedef PlatformIntType PlatformSignedSizeType;
+#define PRI_PlatformSignedSizeType PRI_PlatformSignedSizeType
+
 typedef PlatformIntType PlatformAssertArgType;
 #define PRI_PlatformAssertArgType PRI_PlatformIntType
+
+typedef PlatformIntType PlatformTaskPriorityType;
+#define PRI_PlatformTaskPriorityType PRI_PlatformIntType
+
+typedef PlatformIntType PlatformQueuePriorityType;
+#define PRI_PlatformQueuePriorityType PRI_PlatformIntType
 
 // Linux/Darwin definitions for pointer have various sizes across platforms
 // and since these definitions need to be consistent we must ask the size.

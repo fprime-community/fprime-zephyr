@@ -7,7 +7,7 @@
 #ifndef ZEPHYRTIMEIMPL_HPP_
 #define ZEPHYRTIMEIMPL_HPP_
 
-#include <Zephyr/ZephyrTime/ZephyrTimeComponentAc.hpp>
+#include <Zephyr/Svc/ZephyrTime/ZephyrTimeComponentAc.hpp>
 #include <zephyr/posix/time.h>
 
 namespace Zephyr {
