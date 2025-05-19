@@ -22,7 +22,7 @@ namespace Zephyr {
     public ZephyrUartDriverComponentBase
   {
 
-    const NATIVE_INT_TYPE SERIAL_BUFFER_SIZE = 64;
+    const FwSizeType SERIAL_BUFFER_SIZE = 64;
 
     public:
 
@@ -53,17 +53,23 @@ namespace Zephyr {
         //! Handler implementation for schedIn
         //!
         void schedIn_handler(
-            const NATIVE_INT_TYPE portNum, /*!< The port number*/
-            NATIVE_UINT_TYPE context /*!< 
+            const FwIndexType portNum, /*!< The port number*/
+            U32 context /*!< 
         The call order
         */
         );
 
+
         //! Handler implementation for send
         //!
-        Drv::SendStatus send_handler(
-            const NATIVE_INT_TYPE portNum, /*!< The port number*/
+        void send_handler(
+            const FwIndexType portNum, /*!< The port number*/
             Fw::Buffer &sendBuffer 
+        );
+
+        void recvReturnIn_handler(
+            const FwIndexType portNum, /*!< The port number*/
+            Fw::Buffer &returnBuffer
         );
 
         const struct device *m_dev;

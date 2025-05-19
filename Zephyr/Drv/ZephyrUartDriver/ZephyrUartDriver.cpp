@@ -8,7 +8,7 @@
 #include <Zephyr/Drv/ZephyrUartDriver/ZephyrUartDriver.hpp>
 #include "Fw/Types/BasicTypes.hpp"
 #include "Fw/Types/Assert.hpp"
-#include <FpConfig.hpp>
+#include <Fw/FPrimeBasicTypes.hpp>
 
 namespace Zephyr {
 
@@ -86,8 +86,8 @@ namespace Zephyr {
 
     void ZephyrUartDriver ::
         schedIn_handler(
-            const NATIVE_INT_TYPE portNum,
-            NATIVE_UINT_TYPE context
+            const FwIndexType portNum,
+            U32 context
         )
     {
         Fw::Buffer recv_buffer = this->allocate_out(0, SERIAL_BUFFER_SIZE);
@@ -95,23 +95,19 @@ namespace Zephyr {
         U32 recv_size = ring_buf_get(&this->m_ring_buf, recv_buffer.getData(), recv_buffer.getSize());
         recv_buffer.setSize(recv_size);
 
-        recv_out(0, recv_buffer, Drv::RecvStatus::RECV_OK);
+        recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
     }
 
-    Drv::SendStatus ZephyrUartDriver ::
+    void ZephyrUartDriver ::
         send_handler(
-            const NATIVE_INT_TYPE portNum,
+            const FwIndexType portNum,
             Fw::Buffer &sendBuffer
         )
     {
         for (U32 i = 0; i < sendBuffer.getSize(); i++) {
             uart_poll_out(this->m_dev, sendBuffer.getData()[i]);
         }
-
-        if (this->isConnected_deallocate_OutputPort(0)) {
-            deallocate_out(0, sendBuffer);
-        }
-        return Drv::SendStatus::SEND_OK;
+        this->sendReturnOut_out(0, sendBuffer, Drv::ByteStreamStatus::OP_OK);
     }
 
 } // end namespace Zephyr

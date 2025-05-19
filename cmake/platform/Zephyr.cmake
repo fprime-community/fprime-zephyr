@@ -1,30 +1,24 @@
-add_compile_definitions(TGT_OS_TYPE_ZEPHYR)
+####
+# Zephyr.cmake:
+#
+# Zephyr platform file for standard Zephyr targets.
+####
+link_libraries(zephyr_interface)
+# Required for Fprime
+choose_fprime_implementation(Os/Task Os/Task/Zephyr)
+choose_fprime_implementation(Os/Queue Os/Generic/PriorityQueue)
+choose_fprime_implementation(Os/Mutex Os/Mutex/Stub)
+choose_fprime_implementation(Os/RawTime Os/RawTime/Stub)
 
-set(FPRIME_USE_BAREMETAL_SCHEDULER OFF)
+# Can remain stubs for now
+choose_fprime_implementation(Os/File Os/File/Stub)
+choose_fprime_implementation(Os/Console Os/Console/Stub)
+choose_fprime_implementation(Os/Cpu Os/Cpu/Stub)
+choose_fprime_implementation(Os/Memory Os/Memory/Stub)
 
-# Zephyr compiler options
-include_directories(
-    $<TARGET_PROPERTY:zephyr_interface,INTERFACE_INCLUDE_DIRECTORIES>
-)
+# Use common linux setup
+set(FPRIME_USE_POSIX OFF)
+set(FPRIME_HAS_SOCKETS OFF)
 
-include_directories(SYSTEM
-    $<TARGET_PROPERTY:zephyr_interface,INTERFACE_SYSTEM_INCLUDE_DIRECTORIES>
-)
-
-add_compile_definitions(
-    $<TARGET_PROPERTY:zephyr_interface,INTERFACE_COMPILE_DEFINITIONS>
-)
-
-add_compile_options(
-    $<TARGET_PROPERTY:zephyr_interface,INTERFACE_COMPILE_OPTIONS>
-    # -fno-builtin
-    # -Wno-shadow -Wno-cast-align
-    # -nostdinc
-    # -ffreestanding
-    # -lstdc++
-    -fno-use-cxa-atexit
-    # -fno-strict-overflow
-)
-
-include_directories(SYSTEM "${CMAKE_CURRENT_LIST_DIR}/types")
-# include_directories("${CMAKE_CURRENT_LIST_DIR}/types" "${CMAKE_CURRENT_LIST_DIR}")
+# Add unix specific configuration into the system
+add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/zephyr/Platform/")

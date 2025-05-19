@@ -1,0 +1,1 @@
+set(FPRIME_PLATFORM Zephyr)

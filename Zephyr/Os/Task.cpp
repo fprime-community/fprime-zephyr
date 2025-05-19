@@ -1,44 +1,38 @@
-#include <Os/Task.hpp>
-#include <Fw/Logger/Logger.hpp>
-#include <Fw/Types/Assert.hpp>
+// ======================================================================
+// \title Os Zephyr/Task.cpp
+// \brief implementation of Zephyr implementation of Os::Task
+// ======================================================================
+#include <cstring>
+#include <unistd.h>
+#include <climits>
+#include <cerrno>
+#include <pthread.h>
 
-#include <zephyr/kernel.h>
+#include "Fw/Logger/Logger.hpp"
+#include "Fw/Types/Assert.hpp"
+#include "Os/Task.hpp"
+
 
 namespace Os {
-
-    namespace {
-
-        //! Zephyr thread entry function expects three arguments. This is a glue that creates such function.
-        void zephyrEntryWrapper(
-              void *p1, //!< Pointer to `Task::TaskRoutineWrapper`
-              void *p2, //!< Unused
-              void *p3 //!< Unused
-          ) {
-            Task::TaskRoutineWrapper *task = reinterpret_cast<Task::TaskRoutineWrapper *>(p1);
-            // Call the task's entry point
-            task->routine(task->arg);
-          }
+namespace Zephyr {
+namespace Task {
+    void zephyrEntryWrapper(
+            void *p1, //!< Pointer to `Task::TaskRoutineWrapper`
+            void *p2, //!< Unused
+            void *p3 //!< Unused
+        ) {
+        Task::TaskRoutineWrapper *task = reinterpret_cast<Task::TaskRoutineWrapper *>(p1);
+        // Call the task's entry point
+        task->invoke();
     }
+    void ZephyrTask::onStart() {}
 
-    Task::Task() : m_handle(reinterpret_cast<POINTER_CAST>(nullptr)), m_identifier(0), m_affinity(-1), m_started(false), m_suspendedOnPurpose(false), m_routineWrapper() {}
-
-    Task::TaskStatus Task::start(const Fw::StringBase &name, taskRoutine routine, void* arg, NATIVE_UINT_TYPE priority, NATIVE_UINT_TYPE stackSize,  NATIVE_UINT_TYPE cpuAffinity, NATIVE_UINT_TYPE identifier) {
-        FW_ASSERT(cpuAffinity == Task::TASK_DEFAULT); // Zephyr SMP support is not implemented.
-        FW_ASSERT(routine);
-
-        this->m_name = "T_";
-        this->m_name += name;
-        this->m_identifier = identifier;
-        this->m_started = false;
-        this->m_affinity = cpuAffinity;
-        this->m_routineWrapper.routine = routine;
-        this->m_routineWrapper.arg = arg;
-
-        k_thread_stack_t *stack = k_thread_stack_alloc(stackSize, 0);
+    Os::Task::Status ZephyrTask::start(const Arguments& arguments) {
+        k_thread_stack_t *stack = k_thread_stack_alloc(arguments.m_stackSize, 0);
         
         k_thread *thread = reinterpret_cast<k_thread*>(k_object_alloc(K_OBJ_THREAD));
         if (thread == nullptr) {
-            return TASK_ERROR_RESOURCES;
+            return Os::Task::Status::ERROR_RESOURCES;
         }
 
         // Zephyr priroties range from -16 to +14
@@ -47,71 +41,43 @@ namespace Os {
             priority = 14;
         }
 
-        k_tid_t tid = k_thread_create(thread, stack, stackSize, zephyrEntryWrapper, &this->m_routineWrapper, nullptr, nullptr, priority, 0, K_NO_WAIT);
+        k_tid_t tid = k_thread_create(thread, stack, arguments.m_stackSize, zephyrEntryWrapper, argument.m_routine_argument, nullptr, nullptr, argument.m_priority, 0, K_NO_WAIT);
 #ifdef CONFIG_THREAD_NAME
-        int ret = k_thread_name_set(thread, this->m_name.toChar());
-        FW_ASSERT(ret == 0, ret);
+        int ret = k_thread_name_set(thread, this->arguments.m_name.toChar());
 #endif
         k_thread_start(tid);
-
-        this->m_handle = reinterpret_cast<POINTER_CAST>(tid);
-        Task::s_numTasks++;
-        // If a registry has been registered, register task
-        if (Task::s_taskRegistry) {
-            Task::s_taskRegistry->addTask(this);
-        }
-
-        // Uncomment to allow threads allocating memory from kernel heap.
-        // k_thread_system_pool_assign(thread);
-        return TASK_OK;
+        this->m_handle.m_task_descriptor = thread;
+        return Os::Task::Status::OP_OK;
     }
 
-
-    Task::~Task() {
-        if (this->m_handle) {
-            k_object_release(reinterpret_cast<k_thread*>(this->m_handle));
-    	}
-        // If a registry has been registered, remove task
-        if (Task::s_taskRegistry) {
-            Task::s_taskRegistry->removeTask(this);
-        }
+    Os::Task::Status ZephyrTask::join() {
+        Os::Task::Status status = Os::Task::Status::JOIN_ERROR;
+        status = kthread_join(this->m_handle.m_task_descriptor, K_MSEC(0));
+        return status;
     }
 
-    Task::TaskStatus Task::delay(NATIVE_UINT_TYPE milliseconds)
-    {
-        return Task::TASK_DELAY_ERROR; // TODO
+    TaskHandle* ZephyrTask::getHandle() {
+        return &this->m_handle;
     }
 
-    void Task::suspend(bool onPurpose) {
+    // Note: not implemented for Zephyr threads. Must be manually done using a mutex or other blocking construct as there
+    // is no top-level pthreads support for suspend and resume.
+    void ZephyrTask::suspend(Os::Task::SuspensionType suspensionType) {
         FW_ASSERT(0);
     }
 
-    void Task::resume() {
+    void ZephyrTask::resume() {
         FW_ASSERT(0);
     }
 
-    bool Task::isSuspended() {
-        FW_ASSERT(0);
-        return false;
+
+    Os::Task::Status ZephyrTask::_delay(Fw::TimeInterval interval) {
+        uint32_t delay_ms = interval.getSeconds() * 1000 + interval.getUSeconds() / 1000;
+        k_sleep(K_MSEC(delay_ms)); // Need better error checking 
+        return Os::Task::Status::OP_OK;
     }
 
-    TaskId Task::getOsIdentifier() {
-        TaskId T;
-        return T;
-    }
 
-    Task::TaskStatus Task::join(void **value_ptr) {
-        NATIVE_INT_TYPE stat = 0;
-        if (!(this->m_handle)) {
-            return TASK_JOIN_ERROR;
-        }
-        stat = k_thread_join(reinterpret_cast<k_thread*>(this->m_handle), K_MSEC(0));
-
-        if (stat != 0) {
-            return TASK_JOIN_ERROR;
-        }
-        else {
-            return TASK_OK;
-        }
-    }
-}
+} // end namespace Task
+} // end namespace Zephyr
+} // end namespace Os
