@@ -7,7 +7,7 @@ link_libraries(zephyr_interface)
 # Required for Fprime
 choose_fprime_implementation(Os/Task Os/Task/Zephyr)
 choose_fprime_implementation(Os/Queue Os/Generic/PriorityQueue)
-choose_fprime_implementation(Os/Mutex Os/Mutex/Stub)
+choose_fprime_implementation(Os/Mutex Os/Mutex/Zephyr)
 choose_fprime_implementation(Os/RawTime Os/RawTime/Stub)
 
 # Can remain stubs for now

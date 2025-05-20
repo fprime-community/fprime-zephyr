@@ -1,35 +1,49 @@
-#include <Os/Mutex.hpp>
+// ======================================================================
+// \title Os/Zephyr/Mutex.cpp
+// \brief Zephyr implementation for Os::Mutex
+// ======================================================================
 #include <Fw/Types/Assert.hpp>
-
-#include <zephyr/kernel.h>
+// #include <Os/Zephyr/error.hpp>
+#include "Mutex.hpp"
 
 namespace Os {
+namespace Zephyr {
+namespace Mutex {
 
-    Mutex::Mutex() : m_handle(0) {
-        struct k_mutex* mutex = reinterpret_cast<struct k_mutex *>(k_malloc(sizeof(struct k_mutex)));
-        FW_ASSERT(mutex != nullptr);
+ZephyrMutex::ZephyrMutex() : Os::MutexInterface(), m_handle() {
+    // set attributes
+    struct k_mutex* mutex = reinterpret_cast<struct k_mutex *>(k_malloc(sizeof(struct k_mutex)));
+    k_mutex_init(mutex);
+}
 
-        NATIVE_INT_TYPE ret = k_mutex_init(mutex);
-        FW_ASSERT(ret == 0, ret);
+ZephyrMutex::~ZephyrMutex() {
+    k_free(reinterpret_cast<struct k_mutex*>(this->m_handle.m_mutex_descriptor));
+}
 
-        this->m_handle = reinterpret_cast<POINTER_CAST>(mutex);
-    }
-
-    Mutex::~Mutex() {
-        FW_ASSERT(this->m_handle != 0);
-        k_free(reinterpret_cast<struct k_mutex*>(this->m_handle));
-    }
-
-    void Mutex::lock() {
-        FW_ASSERT(this->m_handle != 0);
-        NATIVE_INT_TYPE ret = k_mutex_lock(reinterpret_cast<struct k_mutex*>(this->m_handle), K_FOREVER);
-        FW_ASSERT(ret == 0, ret);
-    }
-
-    void Mutex::unLock() {
-        FW_ASSERT(this->m_handle != 0);
-        NATIVE_INT_TYPE ret = k_mutex_unlock(reinterpret_cast<struct k_mutex*>(this->m_handle));
-        FW_ASSERT(ret == 0, ret);
+ZephyrMutex::Status ZephyrMutex::take() {
+    int status = k_mutex_lock(reinterpret_cast<struct k_mutex*>(this->m_handle.m_mutex_descriptor), K_FOREVER);
+    if(status == 0){
+        return Os::Mutex::Status::OP_OK;
+    } else if (status == -EBUSY){
+        return Os::Mutex::Status::ERROR_BUSY;
+    } else { // -EAGAIN : mutex timed out
+        return Os::Mutex::Status::NOT_SUPPORTED; 
     }
 
 }
+
+ZephyrMutex::Status ZephyrMutex::release() {
+    int status = k_mutex_unlock(reinterpret_cast<struct k_mutex*>(this->m_handle.m_mutex_descriptor));
+    if(status == 0){
+        return Os::Mutex::Status::OP_OK;
+    }else { // -EPERM and -EINVAL are flags not supported by Fprime
+        return Os::Mutex::Status::NOT_SUPPORTED; 
+    }
+}
+
+MutexHandle* ZephyrMutex::getHandle() {
+    return &this->m_handle;
+}
+}  // namespace Mutex
+}  // namespace Zephyr
+}  // namespace Os

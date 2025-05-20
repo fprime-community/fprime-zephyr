@@ -9,7 +9,18 @@ register_fprime_module(
     DEPENDS
         Fw_Types
 )
+register_fprime_module(
+        Os_Mutex_Zephyr
+    SOURCES
+       "${CMAKE_CURRENT_LIST_DIR}/Mutex.cpp"
+    HEADERS
+      "${CMAKE_CURRENT_LIST_DIR}/Mutex.hpp"
+    DEPENDS
+        Fw_Types
+)
 register_fprime_implementation(Os_Task Os_Task_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultTask.cpp")
+register_fprime_implementation(Os_Mutex Os_Mutex_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultMutex.cpp")
+
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Zephyr")
     set(SOURCE_FILES
