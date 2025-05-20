@@ -1,5 +1,16 @@
 cmake_minimum_required(VERSION 3.13)
 
+register_fprime_module(
+        Os_Task_Zephyr
+    SOURCES
+       "${CMAKE_CURRENT_LIST_DIR}/Task.cpp"
+    HEADERS
+      "${CMAKE_CURRENT_LIST_DIR}/Task.hpp"
+    DEPENDS
+        Fw_Types
+)
+register_fprime_implementation(Os_Task Os_Task_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultTask.cpp")
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Zephyr")
     set(SOURCE_FILES
         # Common implementations

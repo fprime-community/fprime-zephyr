@@ -3,14 +3,14 @@
 // \brief implementation of Zephyr implementation of Os::Task
 // ======================================================================
 #include <cstring>
-#include <unistd.h>
-#include <climits>
-#include <cerrno>
-#include <pthread.h>
-
+// #include <unistd.h>
+// #include <climits>
+// #include <cerrno>
+#include <zephyr/kernel.h>
 #include "Fw/Logger/Logger.hpp"
 #include "Fw/Types/Assert.hpp"
 #include "Os/Task.hpp"
+#include "Task.hpp"
 
 
 namespace Os {
@@ -21,7 +21,7 @@ namespace Task {
             void *p2, //!< Unused
             void *p3 //!< Unused
         ) {
-        Task::TaskRoutineWrapper *task = reinterpret_cast<Task::TaskRoutineWrapper *>(p1);
+        Os::Task::TaskRoutineWrapper *task = reinterpret_cast<Os::Task::TaskRoutineWrapper *>(p1);
         // Call the task's entry point
         task->invoke();
     }
@@ -29,7 +29,8 @@ namespace Task {
 
     Os::Task::Status ZephyrTask::start(const Arguments& arguments) {
         k_thread_stack_t *stack = k_thread_stack_alloc(arguments.m_stackSize, 0);
-        
+        FwSizeType priority = arguments.m_priority;
+
         k_thread *thread = reinterpret_cast<k_thread*>(k_object_alloc(K_OBJ_THREAD));
         if (thread == nullptr) {
             return Os::Task::Status::ERROR_RESOURCES;
@@ -37,13 +38,15 @@ namespace Task {
 
         // Zephyr priroties range from -16 to +14
         if (priority > 14) {
-            Fw::Logger::logMsg("Priority of %d exceeds maximum value. Setting to a priority value of 14.\n", priority);
+            Fw::Logger::log("Priority of %d exceeds maximum value. Setting to a priority value of 14.\n", priority);
             priority = 14;
         }
 
-        k_tid_t tid = k_thread_create(thread, stack, arguments.m_stackSize, zephyrEntryWrapper, argument.m_routine_argument, nullptr, nullptr, argument.m_priority, 0, K_NO_WAIT);
+        k_tid_t tid = k_thread_create(thread, stack, arguments.m_stackSize, zephyrEntryWrapper, arguments.m_routine_argument, nullptr, nullptr, priority, 0, K_NO_WAIT);
+
+
 #ifdef CONFIG_THREAD_NAME
-        int ret = k_thread_name_set(thread, this->arguments.m_name.toChar());
+        k_thread_name_set(thread, this->arguments.m_name.toChar());
 #endif
         k_thread_start(tid);
         this->m_handle.m_task_descriptor = thread;
@@ -51,9 +54,11 @@ namespace Task {
     }
 
     Os::Task::Status ZephyrTask::join() {
-        Os::Task::Status status = Os::Task::Status::JOIN_ERROR;
-        status = kthread_join(this->m_handle.m_task_descriptor, K_MSEC(0));
-        return status;
+        int status = k_thread_join(this->m_handle.m_task_descriptor, K_MSEC(0));
+        if(status == 0){
+            return Os::Task::Status::OP_OK;
+        }
+        return Os::Task::Status::JOIN_ERROR;
     }
 
     TaskHandle* ZephyrTask::getHandle() {
