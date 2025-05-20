@@ -5,7 +5,8 @@
 // ======================================================================
 
 #include <Zephyr/Drv/ZephyrGpioDriver/ZephyrGpioDriver.hpp>
-#include <FpConfig.hpp>
+#include <Fw/FPrimeBasicTypes.hpp>
+// #include <FpConfig.hpp>
 
 namespace Zephyr
 {
@@ -31,12 +32,12 @@ namespace Zephyr
 
     if (!gpio_is_ready_dt(&this->m_pin))
     {
-      return Os:File::Status::OTHER_ERROR; 
+      return Os::File::Status::OTHER_ERROR; 
     }
 
     if (gpio_pin_configure_dt(&this->m_pin, (configuration == GpioConfiguration::IN ? GPIO_INPUT : GPIO_OUTPUT)) < 0)
     {
-      return Os:File::Status::OTHER_ERROR; 
+      return Os::File::Status::OTHER_ERROR; 
     }
 
     return Os::File::Status::OP_OK;
@@ -57,7 +58,7 @@ namespace Zephyr
 
   void ZephyrGpioDriver ::
       gpioWrite_handler(
-          const FwIndexType portNum portNum,
+          const FwIndexType portNum,
           const Fw::Logic &state)
   {
     gpio_pin_set_dt(&this->m_pin, (state == Fw::Logic::HIGH) ? 1 : 0);
