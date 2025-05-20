@@ -13,7 +13,7 @@ namespace Zephyr {
     ZephyrTime::~ZephyrTime() {}
 
     void ZephyrTime::timeGetPort_handler(
-        NATIVE_INT_TYPE portNum, /*!< The port number*/
+        FwIndexType portNum, /*!< The port number*/
         Fw::Time &time /*!< The time to set */
     ) {
         struct timespec stime;
@@ -21,7 +21,7 @@ namespace Zephyr {
         time.set(TB_PROC_TIME,0, stime.tv_sec, stime.tv_nsec/1000);
     }
 
-    void ZephyrTime::init(NATIVE_INT_TYPE instance) {
-        ZephyrTimeComponentBase::init(instance);
-    }
+    // void ZephyrTime::init(FwIndexType instance) {
+    //     ZephyrTimeComponentBase::init(instance);
+    // }
 }

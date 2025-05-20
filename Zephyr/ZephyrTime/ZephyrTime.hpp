@@ -16,10 +16,10 @@ class ZephyrTime: public ZephyrTimeComponentBase {
     public:
         ZephyrTime(const char* compName);
         virtual ~ZephyrTime();
-        void init(NATIVE_INT_TYPE instance);
+        // void init(FwIndexType instance);
     protected:
         void timeGetPort_handler(
-                NATIVE_INT_TYPE portNum, /*!< The port number*/
+                FwIndexType portNum, /*!< The port number*/
                 Fw::Time &time /*!< The U32 cmd argument*/
             );
     private:
