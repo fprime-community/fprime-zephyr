@@ -25,21 +25,21 @@ namespace Zephyr
   {
   }
 
-  bool ZephyrGpioDriver::open(struct gpio_dt_spec gpio, GpioDirection direction)
+  Os::File::Status ZephyrGpioDriver::open(struct gpio_dt_spec gpio, GpioConfiguration configuration)
   {
     this->m_pin = gpio;
 
     if (!gpio_is_ready_dt(&this->m_pin))
     {
-      return false;
+      return Os:File::Status::OTHER_ERROR; 
     }
 
-    if (gpio_pin_configure_dt(&this->m_pin, (direction == GpioDirection::IN ? GPIO_INPUT : GPIO_OUTPUT)) < 0)
+    if (gpio_pin_configure_dt(&this->m_pin, (configuration == GpioConfiguration::IN ? GPIO_INPUT : GPIO_OUTPUT)) < 0)
     {
-      return false;
+      return Os:File::Status::OTHER_ERROR; 
     }
 
-    return true;
+    return Os::File::Status::OP_OK;
   }
 
   // ----------------------------------------------------------------------
@@ -48,7 +48,7 @@ namespace Zephyr
 
   void ZephyrGpioDriver ::
       gpioRead_handler(
-          const NATIVE_INT_TYPE portNum,
+          const FwIndexType portNum,
           Fw::Logic &state)
   {
     U8 value = gpio_pin_get_dt(&this->m_pin);
@@ -57,7 +57,7 @@ namespace Zephyr
 
   void ZephyrGpioDriver ::
       gpioWrite_handler(
-          const NATIVE_INT_TYPE portNum,
+          const FwIndexType portNum portNum,
           const Fw::Logic &state)
   {
     gpio_pin_set_dt(&this->m_pin, (state == Fw::Logic::HIGH) ? 1 : 0);

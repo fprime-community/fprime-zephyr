@@ -10,6 +10,7 @@
 #include "Zephyr/Drv/ZephyrGpioDriver/ZephyrGpioDriverComponentAc.hpp"
 
 #include <zephyr/kernel.h>
+#include <Os/File.hpp>
 #include <zephyr/drivers/gpio.h>
 
 namespace Zephyr {
@@ -20,7 +21,7 @@ namespace Zephyr {
 
     public:
 
-      enum GpioDirection {
+      enum GpioConfiguration {
           IN,   //!< input
           OUT,  //!< output
       };
@@ -40,7 +41,7 @@ namespace Zephyr {
       ~ZephyrGpioDriver();
 
       //! open GPIO
-      bool open(struct gpio_dt_spec gpio, GpioDirection direction);
+       Os::File::Status open(struct gpio_dt_spec gpio, GpioConfiguration configuration);
 
     PRIVATE:
 
@@ -51,14 +52,14 @@ namespace Zephyr {
       //! Handler implementation for gpioRead
       //!
       void gpioRead_handler(
-          const NATIVE_INT_TYPE portNum, /*!< The port number*/
+          const FwIndexType portNum, /*!< The port number*/
           Fw::Logic &state 
       );
 
       //! Handler implementation for gpioWrite
       //!
       void gpioWrite_handler(
-          const NATIVE_INT_TYPE portNum, /*!< The port number*/
+          const FwIndexType portNum, /*!< The port number*/
           const Fw::Logic &state 
       );
 
