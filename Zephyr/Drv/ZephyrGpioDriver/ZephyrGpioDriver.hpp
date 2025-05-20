@@ -51,14 +51,14 @@ namespace Zephyr {
 
       //! Handler implementation for gpioRead
       //!
-      void gpioRead_handler(
+      Drv::GpioStatus gpioRead_handler(
           const FwIndexType portNum, /*!< The port number*/
           Fw::Logic &state 
       );
 
       //! Handler implementation for gpioWrite
       //!
-      void gpioWrite_handler(
+      Drv::GpioStatus gpioWrite_handler(
           const FwIndexType portNum, /*!< The port number*/
           const Fw::Logic &state 
       );
