@@ -5,10 +5,11 @@
 #ifndef OS_ZEPHYR_RAWTIME_HPP
 #define OS_ZEPHYR_RAWTIME_HPP
 
-#include <ctime>
-#include <zephyr/posix/time.h>
+// #include <ctime>
 #include <zephyr/kernel.h>       // for k_uptime_get (optional)
-#include <errno.h>
+#include <Os/RawTime.hpp>
+
+// #include <errno.h>
 
 
 namespace Os {
@@ -17,7 +18,8 @@ namespace RawTime {
 
 // Zephyr provides a POSIX-compatible struct timespec
 struct ZephyrRawTimeHandle : public RawTimeHandle {
-    timespec* m_timespec; //{seconds, nanoseconds}
+        U32 m_seconds;
+        U32 m_micros;
 };
 
 //! \brief Zephyr implementation of Os::RawTime

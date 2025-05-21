@@ -1,6 +1,9 @@
 // ======================================================================
-// \title Os/Posix/RawTime.cpp
-// \brief Posix implementation for Os::RawTime
+// \title Os/Zephyre.cpp
+// \brief Zephyrlementation for Os::RawTime
+// Relevent documentation:
+// https://docs.zephyrproject.org/latest/kernel/services/timing/clocks.html
+// https://docs.zephyrproject.org/latest/doxygen/html/group__clock__apis.html#ga208687de625e0036558343b4e66143d3
 // ======================================================================
 #include <Fw/Logger/Logger.hpp>
 #include <Fw/Types/Assert.hpp>
@@ -11,68 +14,56 @@ namespace Os {
 namespace Zephyr {
 namespace RawTime {
 
-RawTime::Status ZephyrRawTime::now() {
-    PlatformIntType status = clock_gettime(CLOCK_REALTIME, &this->m_handle.m_timespec);
-    if (status != 0) {
-        return errno_to_rawtime_status(errno);
-    }
+bool isNewer(const ZephyrRawTimeHandle& a, const ZephyrRawTimeHandle& b) {
+    return ((a.m_seconds > b.m_seconds) ||
+           ((a.m_seconds == b.m_seconds) && (a.m_micros >= b.m_micros)));
+}
+
+ZephyrRawTime::Status ZephyrRawTime::now() {
+    U32 uptime_millsec = k_uptime_get();
+    this->m_handle.m_seconds = uptime_millsec / 1000;
+    this->m_handle.m_micros = (uptime_millsec % 1000) * 1000;
     return Status::OP_OK;
 }
 
-RawTime::Status ZephyrRawTime::getTimeInterval(const Os::RawTime& other, Fw::TimeInterval& interval) const {
-    timespec t1 = this->m_handle.m_timespec;
-    timespec t2 = static_cast<ZephyrRawTimeHandle*>(const_cast<Os::RawTime&>(other).getHandle())->m_timespec;
+ZephyrRawTime::Status ZephyrRawTime::getTimeInterval(const Os::RawTime& other, Fw::TimeInterval& interval) const {
+    interval.set(0, 0);
+    const ZephyrRawTimeHandle& my_handle = this->m_handle;
+    const ZephyrRawTimeHandle& other_handle = static_cast<const ZephyrRawTimeHandle&>(*const_cast<Os::RawTime&>(other).getHandle());
 
-    // Guarantee t1 is the later time to make the calculation below easier
-    if ((t1.tv_sec < t2.tv_sec) or (t1.tv_sec == t2.tv_sec and t1.tv_nsec < t2.tv_nsec)) {
-        t1 = static_cast<ZephyrRawTimeHandle*>(const_cast<Os::RawTime&>(other).getHandle())->m_timespec;
-        t2 = this->m_handle.m_timespec;
-    }
 
-    // Here we have guaranteed that t1 > t2, so there is no underflow
-    U32 sec = static_cast<U32>(t1.tv_sec - t2.tv_sec);
-    U32 nanosec = 0;
-    if (t1.tv_nsec < t2.tv_nsec) {
-        sec -= 1;  // subtract nsec carry to seconds
-        nanosec = static_cast<U32>(t1.tv_nsec + (1000000000 - t2.tv_nsec));
+    const ZephyrRawTimeHandle& newer = isNewer(my_handle, other_handle) ? my_handle : other_handle;
+    const ZephyrRawTimeHandle& older = isNewer(my_handle, other_handle) ? other_handle : my_handle;
+  
+    if (newer.m_micros < older.m_micros) {
+        interval.set(newer.m_seconds - older.m_seconds - 1, 1000000 + newer.m_micros - older.m_micros);
     } else {
-        nanosec = static_cast<U32>(t1.tv_nsec - t2.tv_nsec);
+        interval.set(newer.m_seconds - older.m_seconds, newer.m_micros - older.m_micros);
     }
 
-    interval.set(sec, nanosec / 1000);
     return Status::OP_OK;
 }
 
 Fw::SerializeStatus ZephyrRawTime::serialize(Fw::SerializeBufferBase& buffer) const {
-    // static_assert(ZephyrRawTime::SERIALIZED_SIZE >= 2 * sizeof(U32),
-    //               "ZephyrRawTime implementation requires at least 2*sizeof(U32) serialization size");
-    Fw::SerializeStatus status = buffer.serialize(static_cast<U32>(this->m_handle.m_timespec.tv_sec));
+    Fw::SerializeStatus status = buffer.serialize(static_cast<U32>(this->m_handle.m_seconds));
     if (status != Fw::SerializeStatus::FW_SERIALIZE_OK) {
         return status;
     }
-    return buffer.serialize(static_cast<U32>(this->m_handle.m_timespec.tv_nsec));
+    return buffer.serialize(static_cast<U32>(this->m_handle.m_micros));
 }
 
 Fw::SerializeStatus ZephyrRawTime::deserialize(Fw::SerializeBufferBase& buffer) {
-    // static_assert(ZephyrRawTime::SERIALIZED_SIZE >= 2 * sizeof(U32),
-    //               "ZephyrRawTime implementation requires at least 2*sizeof(U32) serialization size");
-    U32 sec = 0;
-    U32 nsec = 0;
-    Fw::SerializeStatus status = buffer.deserialize(sec);
+    Fw::SerializeStatus status = buffer.deserialize(this->m_handle.m_seconds);
     if (status != Fw::SerializeStatus::FW_SERIALIZE_OK) {
         return status;
     }
-    status = buffer.deserialize(nsec);
-    if (status != Fw::SerializeStatus::FW_SERIALIZE_OK) {
-        return status;
-    }
-    this->m_handle.m_timespec = {static_cast<time_t>(sec), static_cast<long>(nsec)};
-    return Fw::SerializeStatus::FW_SERIALIZE_OK;
+    return buffer.deserialize(this->m_handle.m_micros);
 }
 
 RawTimeHandle* ZephyrRawTime::getHandle() {
     return &this->m_handle;
 }
+
 
 }  // namespace RawTime
 }  // namespace Zephyr

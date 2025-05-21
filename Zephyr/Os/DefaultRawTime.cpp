@@ -2,8 +2,8 @@
 // \title Os/Posix/DefaultRawTime.cpp
 // \brief sets default Os::RawTime Posix implementation via linker
 // ======================================================================
-#include "Zephyr/Os/RawTime.hpp"
 #include "Os/Delegate.hpp"
+#include "Zephyr/Os/RawTime.hpp"
 
 namespace Os {
 

@@ -4,16 +4,13 @@
 // ======================================================================
 #ifndef Os_Zephyr_Task_hpp_
 #define Os_Zephyr_Task_hpp_
-
-#include <Os/Task.hpp>
-
 #include <Fw/FPrimeBasicTypes.hpp>
 #include <Fw/Types/Serializable.hpp>
 #include <Os/TaskString.hpp>
 #include <Os/Mutex.hpp>
 #include <Fw/Deprecate.hpp>
 #include <zephyr/kernel.h>
-
+#include <Os/Task.hpp>
 namespace Os {
 namespace Zephyr {
 namespace Task {

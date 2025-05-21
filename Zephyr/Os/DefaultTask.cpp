@@ -2,9 +2,9 @@
 // \title Os/Posix/DefaultTask.cpp
 // \brief sets default Os::Task to posix implementation via linker
 // ======================================================================
-#include "Os/Task.hpp"
-#include "Os/Zepyhr/Task.hpp"
 #include "Os/Delegate.hpp"
+#include "Os/Task.hpp"
+#include "Zephyr/Os/Task.hpp"
 
 namespace Os {
 

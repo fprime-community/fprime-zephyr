@@ -3,8 +3,9 @@
 // \brief Zephyr implementation for Os::Mutex
 // ======================================================================
 #include <Fw/Types/Assert.hpp>
+#include "Zephyr/Os/Mutex.hpp"
 // #include <Os/Zephyr/error.hpp>
-#include "Mutex.hpp"
+
 
 namespace Os {
 namespace Zephyr {

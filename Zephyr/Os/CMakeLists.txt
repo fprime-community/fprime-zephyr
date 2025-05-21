@@ -40,6 +40,7 @@ register_fprime_module(
 register_fprime_implementation(Os_Task Os_Task_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultTask.cpp")
 register_fprime_implementation(Os_Mutex Os_Mutex_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultMutex.cpp")
 register_fprime_implementation(Os_ConditionVariable Os_ConditionVariable_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultConditionVariable.cpp")
+register_fprime_implementation(Os_RawTime Os_RawTime_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultRawTime.cpp")
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Zephyr")
     set(SOURCE_FILES
@@ -53,6 +54,7 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL "Zephyr")
         "${CMAKE_CURRENT_LIST_DIR}/ConditionVariable.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/Queue.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/IntervalTimer.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/RawTime.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/Task.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/File.cpp"
     )

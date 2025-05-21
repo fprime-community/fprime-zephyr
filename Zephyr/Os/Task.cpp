@@ -10,7 +10,8 @@
 #include "Fw/Logger/Logger.hpp"
 #include "Fw/Types/Assert.hpp"
 #include "Os/Task.hpp"
-#include "Task.hpp"
+#include "Zephyr/Os/Task.hpp"
+// #include "Task.hpp"
 
 
 namespace Os {

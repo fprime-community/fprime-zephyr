@@ -1,7 +1,7 @@
-#include "Zephyr/Os/ConditionVariable.hpp"
 #include "Fw/Types/Assert.hpp"
 #include "Fw/Logger/Logger.hpp"
 #include "Zephyr/Os/Mutex.hpp"
+#include "Zephyr/Os/ConditionVariable.hpp"
 
 //https://docs.zephyrproject.org/apidoc/latest/group__condvar__apis.html
 
