@@ -3,7 +3,7 @@
 // \brief Zephyrlementation for Os::RawTime
 // Relevent documentation:
 // https://docs.zephyrproject.org/latest/kernel/services/timing/clocks.html
-// https://docs.zephyrproject.org/latest/doxygen/html/group__clock__apis.html#ga208687de625e0036558343b4e66143d3
+// https://docs.zephyrproject.org/latest/doxygen/html/group__clock__apis.html
 // ======================================================================
 #include <Fw/Logger/Logger.hpp>
 #include <Fw/Types/Assert.hpp>

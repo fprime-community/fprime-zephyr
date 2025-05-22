@@ -2,6 +2,9 @@
 // \title  ZephyrGpioDriver.cpp
 // \author ethanchee
 // \brief  cpp file for ZephyrGpioDriver component implementation class
+// Relevant Documentation:
+// https://docs.zephyrproject.org/apidoc/latest/structgpio__dt__spec.html
+//https://docs.zephyrproject.org/apidoc/latest/group__gpio__interface.html
 // ======================================================================
 
 #include <Zephyr/Drv/ZephyrGpioDriver/ZephyrGpioDriver.hpp>

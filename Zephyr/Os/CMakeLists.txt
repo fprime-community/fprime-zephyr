@@ -8,26 +8,21 @@ register_fprime_module(
       "${CMAKE_CURRENT_LIST_DIR}/Task.hpp"
     DEPENDS
         Fw_Types
+        kernel
 )
 register_fprime_module(
         Os_Mutex_Zephyr
     SOURCES
        "${CMAKE_CURRENT_LIST_DIR}/Mutex.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/ConditionVariable.cpp"
     HEADERS
       "${CMAKE_CURRENT_LIST_DIR}/Mutex.hpp"
-    DEPENDS
-        Fw_Types
-)
-register_fprime_module(
-        Os_ConditionVariable_Zephyr
-    SOURCES
-       "${CMAKE_CURRENT_LIST_DIR}/ConditionVariable.cpp"
-    HEADERS
       "${CMAKE_CURRENT_LIST_DIR}/ConditionVariable.hpp"
     DEPENDS
         Fw_Types
-        Os_Mutex_Zephyr
+        kernel
 )
+
 register_fprime_module(
         Os_RawTime_Zephyr
     SOURCES
@@ -36,10 +31,10 @@ register_fprime_module(
       "${CMAKE_CURRENT_LIST_DIR}/RawTime.hpp"
     DEPENDS
         Fw_Types
+        kernel
 )
 register_fprime_implementation(Os_Task Os_Task_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultTask.cpp")
 register_fprime_implementation(Os_Mutex Os_Mutex_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultMutex.cpp")
-register_fprime_implementation(Os_ConditionVariable Os_ConditionVariable_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultConditionVariable.cpp")
 register_fprime_implementation(Os_RawTime Os_RawTime_Zephyr "${CMAKE_CURRENT_LIST_DIR}/DefaultRawTime.cpp")
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL "Zephyr")

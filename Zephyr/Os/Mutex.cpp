@@ -1,11 +1,13 @@
 // ======================================================================
 // \title Os/Zephyr/Mutex.cpp
 // \brief Zephyr implementation for Os::Mutex
+// Relevant Documentation:
+// https://docs.zephyrproject.org/latest/kernel/memory_management/heap.html
+// https://docs.zephyrproject.org/latest/kernel/services/synchronization/mutexes.html
+// https://docs.zephyrproject.org/latest/doxygen/html/group__mutex__apis.html
 // ======================================================================
 #include <Fw/Types/Assert.hpp>
 #include "Zephyr/Os/Mutex.hpp"
-// #include <Os/Zephyr/error.hpp>
-
 
 namespace Os {
 namespace Zephyr {

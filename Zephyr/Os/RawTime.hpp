@@ -1,15 +1,13 @@
 // ======================================================================
-// \title Os/Posix/RawTime.hpp
-// \brief Posix definitions for Os::RawTime
+// \title Os/Zephyr/RawTime.hpp
+// \brief Zephyr definitions for Os::RawTime
 // ======================================================================
 #ifndef OS_ZEPHYR_RAWTIME_HPP
 #define OS_ZEPHYR_RAWTIME_HPP
 
-// #include <ctime>
-#include <zephyr/kernel.h>       // for k_uptime_get (optional)
+#include <zephyr/kernel.h>     
 #include <Os/RawTime.hpp>
 
-// #include <errno.h>
 
 
 namespace Os {

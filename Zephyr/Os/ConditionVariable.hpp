@@ -4,7 +4,6 @@
 // ======================================================================
 #ifndef OS_ZEPHYR_CONDITION_VARIABLE_HPP
 #define OS_ZEPHYR_CONDITION_VARIABLE_HPP
-// #include <pthread.h>
 #include "Os/Condition.hpp"
 #include <zephyr/kernel.h>
 
