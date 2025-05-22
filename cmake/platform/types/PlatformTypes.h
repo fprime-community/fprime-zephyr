@@ -1,9 +1,9 @@
 /**
- * \brief PlatformTypes.h C-compatible type definitions for Linux/Darwin
+ * \brief PlatformTypes.h C-compatible type definitions for Zephyr
  *
  * PlatformTypes.h is typically published by platform developers to define
  * the standard available arithmetic types for use in fprime. This standard
- * types header is designed to support standard Linux/Darwin distributions
+ * types header is designed to support standard Zephyr distributions
  * running on x86, x86_64 machines and using the standard gcc/clang compilers
  * shipped with the operating system.
  *
@@ -68,12 +68,12 @@ typedef PlatformUIntType PlatformSizeType;
 typedef PlatformIntType PlatformAssertArgType;
 #define PRI_PlatformAssertArgType PRI_PlatformIntType
 
-// Linux/Darwin definitions for pointer have various sizes across platforms
+// Zephyr definitions for pointer have various sizes across platforms
 // and since these definitions need to be consistent we must ask the size.
 #ifndef PLATFORM_POINTER_CAST_TYPE_DEFINED
 // Check for __SIZEOF_POINTER__ or cause error
 #ifndef __SIZEOF_POINTER__
-#error "Compiler does not support __SIZEOF_POINTER__, cannot use Linux/Darwin types"
+#error "Compiler does not support __SIZEOF_POINTER__, cannot use Zephyr types"
 #endif
 
 // Pointer sizes are determined by compiler

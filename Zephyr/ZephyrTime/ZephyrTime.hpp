@@ -16,7 +16,6 @@ class ZephyrTime: public ZephyrTimeComponentBase {
     public:
         ZephyrTime(const char* compName);
         virtual ~ZephyrTime();
-        // void init(FwIndexType instance);
     protected:
         void timeGetPort_handler(
                 FwIndexType portNum, /*!< The port number*/

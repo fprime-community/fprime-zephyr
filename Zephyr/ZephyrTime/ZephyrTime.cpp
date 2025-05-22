@@ -21,7 +21,4 @@ namespace Zephyr {
         time.set(TB_PROC_TIME,0, stime.tv_sec, stime.tv_nsec/1000);
     }
 
-    // void ZephyrTime::init(FwIndexType instance) {
-    //     ZephyrTimeComponentBase::init(instance);
-    // }
 }

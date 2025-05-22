@@ -6,7 +6,6 @@
 
 #include <Zephyr/Drv/ZephyrGpioDriver/ZephyrGpioDriver.hpp>
 #include <Fw/FPrimeBasicTypes.hpp>
-// #include <FpConfig.hpp>
 
 namespace Zephyr
 {
