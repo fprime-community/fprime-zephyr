@@ -3,8 +3,7 @@ module Zephyr {
   @ An interrupt based driver for Arduino rate groups.
   passive component ZephyrRateDriver {
 
-    @ The cycle outputs. Meant to be connected to rate group driver
-    output port CycleOut: [1] Svc.Cycle
+    include "../../../../fprime/Drv/Interfaces/TickInterface.fppi"
 
     @ GPIO output port to indicate startup error
     output port error: [1] Drv.GpioWrite

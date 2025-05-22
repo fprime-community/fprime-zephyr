@@ -5,8 +5,9 @@
 // ======================================================================
 
 #include <Zephyr/Drv/ZephyrRateDriver/ZephyrRateDriver.hpp>
-#include <FpConfig.hpp>
+// #include <FpConfig.hpp>
 #include <Fw/Logger/Logger.hpp>
+#include <Fw/FPrimeBasicTypes.hpp>
 
 namespace Zephyr
 {
@@ -51,7 +52,7 @@ namespace Zephyr
     void ZephyrRateDriver::start()
     {
         U32 microseconds = this->m_interval * 1000;
-        Fw::Logger::logMsg("Starting base rate group clock with period of %" PRIu32 " microseconds", microseconds);
+        Fw::Logger::log("Starting base rate group clock with period of %" PRIu32 " microseconds", microseconds);
         k_timer_init(&s_itimer, NULL, NULL);
 
         /* start periodic timer */
