@@ -7,8 +7,8 @@
 // ======================================================================
 #include "Fw/Types/Assert.hpp"
 #include "Fw/Logger/Logger.hpp"
-#include "Zephyr/Os/Mutex.hpp"
-#include "Zephyr/Os/ConditionVariable.hpp"
+#include "fprime-zephyr/Os/Mutex.hpp"
+#include "fprime-zephyr/Os/ConditionVariable.hpp"
 
 
 namespace Os {

@@ -5,7 +5,7 @@
 // ======================================================================
 
 
-#include <Zephyr/Drv/ZephyrUartDriver/ZephyrUartDriver.hpp>
+#include "fprime-zephyr/Drv/ZephyrUartDriver/ZephyrUartDriver.hpp"
 #include "Fw/Types/BasicTypes.hpp"
 #include "Fw/Types/Assert.hpp"
 #include <Fw/FPrimeBasicTypes.hpp>

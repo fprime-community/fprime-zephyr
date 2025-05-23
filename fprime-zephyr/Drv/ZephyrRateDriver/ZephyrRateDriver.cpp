@@ -4,7 +4,7 @@
 // \brief  cpp file for ZephyrRateDriver component implementation class
 // ======================================================================
 
-#include <Zephyr/Drv/ZephyrRateDriver/ZephyrRateDriver.hpp>
+#include "fprime-zephyr/Drv/ZephyrRateDriver/ZephyrRateDriver.hpp"
 // #include <FpConfig.hpp>
 #include <Fw/Logger/Logger.hpp>
 #include <Fw/FPrimeBasicTypes.hpp>

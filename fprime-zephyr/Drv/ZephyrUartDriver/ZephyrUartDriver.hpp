@@ -7,7 +7,7 @@
 #ifndef ZephyrUartDriver_HPP
 #define ZephyrUartDriver_HPP
 
-#include "Zephyr/Drv/ZephyrUartDriver/ZephyrUartDriverComponentAc.hpp"
+#include "fprime-zephyr/Drv/ZephyrUartDriver/ZephyrUartDriverComponentAc.hpp"
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>

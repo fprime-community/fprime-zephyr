@@ -7,7 +7,7 @@
 // https://docs.zephyrproject.org/latest/doxygen/html/group__mutex__apis.html
 // ======================================================================
 #include <Fw/Types/Assert.hpp>
-#include "Zephyr/Os/Mutex.hpp"
+#include "fprime-zephyr/Os/Mutex.hpp"
 
 namespace Os {
 namespace Zephyr {

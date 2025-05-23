@@ -8,7 +8,7 @@
 #include <Fw/Logger/Logger.hpp>
 #include <Fw/Types/Assert.hpp>
 #include <cerrno>
-#include "Zephyr/Os/RawTime.hpp"
+#include "fprime-zephyr/Os/RawTime.hpp"
 
 namespace Os {
 namespace Zephyr {
