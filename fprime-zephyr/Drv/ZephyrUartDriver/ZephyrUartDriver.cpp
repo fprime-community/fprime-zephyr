@@ -110,4 +110,8 @@ namespace Zephyr {
         this->sendReturnOut_out(0, sendBuffer, Drv::ByteStreamStatus::OP_OK);
     }
 
+    void ZephyrUartDriver ::recvReturnIn_handler(const FwIndexType portNum, Fw::Buffer &returnBuffer) {
+        this->deallocate_out(0, returnBuffer);
+    }
+
 } // end namespace Zephyr

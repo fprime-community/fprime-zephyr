@@ -12,7 +12,7 @@ namespace Zephyr {
 namespace Mutex {
 
 struct ZephyrConditionVariableHandle : public ConditionVariableHandle {
-    k_condvar* m_condition; //! The condition variable
+    k_condvar m_condition; //! The condition variable
 };
 
 //! \brief Zephyr implementation of Os::ConditionVariable

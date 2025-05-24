@@ -8,5 +8,16 @@ register_fprime_config(
         "${CMAKE_CURRENT_LIST_DIR}/PlatformTypes.fpp"
     HEADERS
         "${CMAKE_CURRENT_LIST_DIR}/PlatformTypes.h"
+    CHOOSES_IMPLEMENTATIONS
+        Os_Task_Zephyr
+        Os_Generic_PriorityQueue
+        Os_Mutex_Zephyr
+        Os_RawTime_Stub
+
+        # Can remain stubs for now
+        Os_File_Stub
+        Os_Console_Stub
+        Os_Cpu_Stub
+        Os_Memory_Stub
     INTERFACE # No buildable files generated
 )
