@@ -12,7 +12,7 @@ namespace Zephyr {
 namespace Mutex {
 
 struct ZephyrMutexHandle : public MutexHandle {
-    k_mutex* m_mutex_descriptor;
+    k_mutex m_mutex_descriptor;
 };
 
 //! \brief Zephyr implementation of Os::Mutex

@@ -7,7 +7,7 @@
 //https://docs.zephyrproject.org/apidoc/latest/group__gpio__interface.html
 // ======================================================================
 
-#include <Zephyr/Drv/ZephyrGpioDriver/ZephyrGpioDriver.hpp>
+#include "fprime-zephyr/Drv/ZephyrGpioDriver/ZephyrGpioDriver.hpp"
 #include <Fw/FPrimeBasicTypes.hpp>
 
 namespace Zephyr

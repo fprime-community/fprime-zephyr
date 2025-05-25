@@ -11,7 +11,7 @@
 #include "Fw/Logger/Logger.hpp"
 #include "Fw/Types/Assert.hpp"
 #include "Os/Task.hpp"
-#include "Zephyr/Os/Task.hpp"
+#include "fprime-zephyr/Os/Task.hpp"
 
 
 

@@ -7,7 +7,7 @@
 #ifndef ZephyrUartDriver_HPP
 #define ZephyrUartDriver_HPP
 
-#include "Zephyr/Drv/ZephyrUartDriver/ZephyrUartDriverComponentAc.hpp"
+#include "fprime-zephyr/Drv/ZephyrUartDriver/ZephyrUartDriverComponentAc.hpp"
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -42,7 +42,7 @@ namespace Zephyr {
 
         void configure(const struct device *dev, U32 baud_rate);
 
-    PRIVATE:
+    public:
 
         static void serial_cb(const struct device *dev, void *user_data);
 

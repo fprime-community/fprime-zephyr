@@ -5,10 +5,16 @@
 // ======================================================================
 
 
-#include <Zephyr/Drv/ZephyrUartDriver/ZephyrUartDriver.hpp>
+#include "fprime-zephyr/Drv/ZephyrUartDriver/ZephyrUartDriver.hpp"
 #include "Fw/Types/BasicTypes.hpp"
 #include "Fw/Types/Assert.hpp"
 #include <Fw/FPrimeBasicTypes.hpp>
+
+#include <zephyr/drivers/gpio.h>
+
+#define LED0_NODE DT_ALIAS(led0)
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+
 
 namespace Zephyr {
 
@@ -21,7 +27,6 @@ namespace Zephyr {
             const char *const compName
         ) : ZephyrUartDriverComponentBase(compName)
     {
-
     }
 
     ZephyrUartDriver ::
@@ -107,7 +112,13 @@ namespace Zephyr {
         for (U32 i = 0; i < sendBuffer.getSize(); i++) {
             uart_poll_out(this->m_dev, sendBuffer.getData()[i]);
         }
-        this->sendReturnOut_out(0, sendBuffer, Drv::ByteStreamStatus::OP_OK);
+        if (this->isConnected_sendReturnOut_OutputPort(0)) {
+            this->sendReturnOut_out(0, sendBuffer, Drv::ByteStreamStatus::OP_OK);
+        }
+    }
+
+    void ZephyrUartDriver ::recvReturnIn_handler(const FwIndexType portNum, Fw::Buffer &returnBuffer) {
+        this->deallocate_out(0, returnBuffer);
     }
 
 } // end namespace Zephyr

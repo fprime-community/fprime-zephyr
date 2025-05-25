@@ -7,7 +7,7 @@
 #ifndef ZephyrRateDriver_HPP
 #define ZephyrRateDriver_HPP
 
-#include "Zephyr/Drv/ZephyrRateDriver/ZephyrRateDriverComponentAc.hpp"
+#include "fprime-zephyr/Drv/ZephyrRateDriver/ZephyrRateDriverComponentAc.hpp"
 #include <Svc/Cycle/TimerVal.hpp>
 #include <zephyr/kernel.h>
 
