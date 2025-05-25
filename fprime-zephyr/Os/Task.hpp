@@ -18,7 +18,7 @@ namespace Task {
     //! TaskHandle class definition for Zephyr implementations.
     //!
     struct ZephyrTaskHandle : public TaskHandle {
-        k_thread* m_task_descriptor;
+        k_thread m_task_descriptor;
     };
 
     //! Zephyr task implementation as driven by pthreads implementation

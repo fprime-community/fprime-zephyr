@@ -30,11 +30,12 @@ namespace Task {
     void ZephyrTask::onStart() {}
 
     Os::Task::Status ZephyrTask::start(const Arguments& arguments) {
-        k_thread_stack_t *stack = k_thread_stack_alloc(arguments.m_stackSize, 0);
+        size_t stack_size = static_cast<size_t>(arguments.m_stackSize);
+        
+        k_thread_stack_t *stack = k_thread_stack_alloc(stack_size, 0);
         FwSizeType priority = arguments.m_priority;
 
-        k_thread *thread = reinterpret_cast<k_thread*>(k_object_alloc(K_OBJ_THREAD));
-        if (thread == nullptr) {
+        if (stack == nullptr) {
             return Os::Task::Status::ERROR_RESOURCES;
         }
 
@@ -44,19 +45,18 @@ namespace Task {
             priority = 14;
         }
 
-        k_tid_t tid = k_thread_create(thread, stack, arguments.m_stackSize, zephyrEntryWrapper, arguments.m_routine_argument, nullptr, nullptr, priority, 0, K_NO_WAIT);
+        k_tid_t tid = k_thread_create(&this->m_handle.m_task_descriptor, stack, arguments.m_stackSize, zephyrEntryWrapper, arguments.m_routine_argument, nullptr, nullptr, priority, 0, K_NO_WAIT);
 
 
 #ifdef CONFIG_THREAD_NAME
-        k_thread_name_set(thread, this->arguments.m_name.toChar());
+        k_thread_name_set(&this->m_handle.m_task_descriptor, this->arguments.m_name.toChar());
 #endif
         k_thread_start(tid);
-        this->m_handle.m_task_descriptor = thread;
         return Os::Task::Status::OP_OK;
     }
 
     Os::Task::Status ZephyrTask::join() {
-        int status = k_thread_join(this->m_handle.m_task_descriptor, K_MSEC(0));
+        int status = k_thread_join(&this->m_handle.m_task_descriptor, K_MSEC(0));
         if(status == 0){
             return Os::Task::Status::OP_OK;
         }

@@ -1,13 +1,12 @@
 ####
-# F prime CMakeLists.txt:
-#
-# SOURCE_FILES: combined list of source and autocoding diles
-# MOD_DEPS: (optional) module dependencies
-#
+# F prime CMakeLists.txt
 ####
-set(SOURCE_FILES
-  "${CMAKE_CURRENT_LIST_DIR}/ZephyrRateDriver.fpp"
-  "${CMAKE_CURRENT_LIST_DIR}/ZephyrRateDriver.cpp"
-)
 
-register_fprime_module()
+register_fprime_module(
+  AUTOCODER_INPUTS
+    "${CMAKE_CURRENT_LIST_DIR}/ZephyrRateDriver.fpp"
+  SOURCES
+   "${CMAKE_CURRENT_LIST_DIR}/ZephyrRateDriver.cpp"
+  DEPENDS
+    kernel
+)
