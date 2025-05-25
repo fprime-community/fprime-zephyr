@@ -12,11 +12,12 @@ register_fprime_config(
         Os_Task_Zephyr
         Os_Generic_PriorityQueue
         Os_Mutex_Zephyr
-        Os_RawTime_Stub
+        Os_RawTime_Zephyr
+        Os_StringFormat_Zephyr_snprintk
+        Os_Console_Zephyr
 
         # Can remain stubs for now
         Os_File_Stub
-        Os_Console_Stub
         Os_Cpu_Stub
         Os_Memory_Stub
     INTERFACE # No buildable files generated

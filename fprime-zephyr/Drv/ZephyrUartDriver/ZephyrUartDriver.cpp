@@ -10,6 +10,12 @@
 #include "Fw/Types/Assert.hpp"
 #include <Fw/FPrimeBasicTypes.hpp>
 
+#include <zephyr/drivers/gpio.h>
+
+#define LED0_NODE DT_ALIAS(led0)
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
+
+
 namespace Zephyr {
 
     // ----------------------------------------------------------------------
@@ -21,7 +27,19 @@ namespace Zephyr {
             const char *const compName
         ) : ZephyrUartDriverComponentBase(compName)
     {
-
+        gpio_pin_toggle_dt(&led);
+        k_msleep(100);
+        gpio_pin_toggle_dt(&led);
+        k_msleep(100);
+        gpio_pin_toggle_dt(&led);
+        k_msleep(100);
+        gpio_pin_toggle_dt(&led);
+        k_msleep(100);
+        gpio_pin_toggle_dt(&led);
+        k_msleep(100);
+        gpio_pin_toggle_dt(&led);
+        k_msleep(100);
+        gpio_pin_toggle_dt(&led);
     }
 
     ZephyrUartDriver ::
@@ -47,8 +65,8 @@ namespace Zephyr {
         };
         uart_configure(this->m_dev, &uart_cfg);
 
-        ring_buf_init(&this->m_ring_buf, RING_BUF_SIZE, this->m_ring_buf_data);
-        uart_irq_callback_user_data_set(this->m_dev, serial_cb, &this->m_ring_buf);
+        //ring_buf_init(&this->m_ring_buf, RING_BUF_SIZE, this->m_ring_buf_data);
+        //uart_irq_callback_user_data_set(this->m_dev, serial_cb, &this->m_ring_buf);
 
         uart_irq_rx_enable(this->m_dev);
 	    uart_irq_tx_disable(this->m_dev);
@@ -92,8 +110,8 @@ namespace Zephyr {
     {
         Fw::Buffer recv_buffer = this->allocate_out(0, SERIAL_BUFFER_SIZE);
 
-        U32 recv_size = ring_buf_get(&this->m_ring_buf, recv_buffer.getData(), recv_buffer.getSize());
-        recv_buffer.setSize(recv_size);
+        //U32 recv_size = ring_buf_get(&this->m_ring_buf, recv_buffer.getData(), recv_buffer.getSize());
+        //recv_buffer.setSize(recv_size);
 
         recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
     }
@@ -107,7 +125,9 @@ namespace Zephyr {
         for (U32 i = 0; i < sendBuffer.getSize(); i++) {
             uart_poll_out(this->m_dev, sendBuffer.getData()[i]);
         }
-        this->sendReturnOut_out(0, sendBuffer, Drv::ByteStreamStatus::OP_OK);
+        if (this->isConnected_sendReturnOut_OutputPort(0)) {
+            this->sendReturnOut_out(0, sendBuffer, Drv::ByteStreamStatus::OP_OK);
+        }
     }
 
     void ZephyrUartDriver ::recvReturnIn_handler(const FwIndexType portNum, Fw::Buffer &returnBuffer) {

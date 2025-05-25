@@ -30,7 +30,7 @@ register_fprime_implementation(
 )
 
 register_fprime_implementation(
-        Os_RawTime_Zephyr_Implementation
+        Os_RawTime_Zephyr
     SOURCES
        "${CMAKE_CURRENT_LIST_DIR}/RawTime.cpp"
        "${CMAKE_CURRENT_LIST_DIR}/DefaultRawTime.cpp"
@@ -42,3 +42,28 @@ register_fprime_implementation(
     IMPLEMENTS
         Os_RawTime
 )
+
+register_fprime_implementation(
+        Os_Console_Zephyr
+    SOURCES
+       "${CMAKE_CURRENT_LIST_DIR}/Console.cpp"
+       "${CMAKE_CURRENT_LIST_DIR}/DefaultConsole.cpp"
+    HEADERS
+       "${CMAKE_CURRENT_LIST_DIR}/Console.hpp"
+    DEPENDS
+        Fw_Types
+        kernel
+    IMPLEMENTS
+        Os_Console
+)
+
+register_fprime_implementation(
+    Os_StringFormat_Zephyr_snprintk
+  IMPLEMENTS
+    Fw_StringFormat
+  DEPENDS
+    Fw_Types
+  SOURCES
+    "${CMAKE_CURRENT_LIST_DIR}/snprintk.cpp"
+)
+   

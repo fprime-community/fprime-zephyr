@@ -6,7 +6,7 @@
 # 3. Supplies a function `register_fprime_zephyr_deployment` that registers a deployment/zephyr application
 ####
 set(FPRIME_PLATFORM Zephyr)
-
+set(EMPTY_SOURCE "${CMAKE_CURRENT_LIST_DIR}/empty.cpp")
 ####
 # Function `register_fprime_zephyr_deployment`:
 #
@@ -45,7 +45,7 @@ function(register_fprime_zephyr_deployment)
         set(BUILD_TARGET_NAME "${INTERNAL_UNPARSED_ARGUMENTS}")
     endif()
     # Register an interface library substituted as the F Prime deployment
-    add_library(fprime-zephyr-deployment "${CMAKE_CURRENT_LIST_DIR}/empty.cpp")
+    add_library(fprime-zephyr-deployment "${EMPTY_SOURCE}")
     fprime_target_dependencies(fprime-zephyr-deployment PUBLIC ${INTERNAL_DEPENDS})
     set_target_properties(fprime-zephyr-deployment PROPERTIES
         FPRIME_TYPE Deployment

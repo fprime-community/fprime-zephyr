@@ -42,7 +42,7 @@ namespace Zephyr {
 
         void configure(const struct device *dev, U32 baud_rate);
 
-    PRIVATE:
+    public:
 
         static void serial_cb(const struct device *dev, void *user_data);
 
@@ -74,8 +74,8 @@ namespace Zephyr {
 
         const struct device *m_dev;
 
-        U8 m_ring_buf_data[RING_BUF_SIZE];
-        struct ring_buf m_ring_buf;
+        //U8 m_ring_buf_data[RING_BUF_SIZE];
+        //struct ring_buf m_ring_buf;
     };
 
 } // end namespace Zephyr
