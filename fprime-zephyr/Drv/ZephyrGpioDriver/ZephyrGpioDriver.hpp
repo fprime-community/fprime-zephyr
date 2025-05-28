@@ -64,7 +64,7 @@ namespace Zephyr {
       );
 
       struct gpio_dt_spec m_pin;
-    };
+  };
 
 } // end namespace Zephyr
 

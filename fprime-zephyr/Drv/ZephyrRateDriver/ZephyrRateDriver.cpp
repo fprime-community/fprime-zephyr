@@ -9,8 +9,7 @@
 #include <Fw/Logger/Logger.hpp>
 #include <Fw/FPrimeBasicTypes.hpp>
 
-namespace Zephyr
-{
+namespace Zephyr{
 
 
     // ----------------------------------------------------------------------
