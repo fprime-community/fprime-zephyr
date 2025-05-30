@@ -65,7 +65,7 @@ function(register_fprime_zephyr_deployment)
         FILES_MATCHING PATTERN "zephyr/zephyr.*"
         REGEX "zephyr/[^z]" EXCLUDE
     )
-    add_custom_target(${BUILD_TARGET_NAME} DEPENDS zephyr_final
+    add_custom_target(${BUILD_TARGET_NAME} ALL DEPENDS zephyr_final
         COMMAND "${CMAKE_COMMAND}"
             -DCMAKE_INSTALL_COMPONENT=fprime-zephyr-binaries -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
     
