@@ -10,6 +10,10 @@ executable: build-fprime-automatic-zephyr/zephyr/zephyr.hex
 # Optional CI system config
 jobs: 4
 
+extra-build-arguments:
+  - --target
+  - fprime-zephyr-reference_ReferenceDeployment
+
 extra-generate-arguments:
   - -DFPRIME_CI_FAILSAFE_ENABLED=ON
 
