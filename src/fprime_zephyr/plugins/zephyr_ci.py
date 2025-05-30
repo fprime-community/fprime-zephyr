@@ -31,6 +31,8 @@ class ZephyrCi(Ci):
         description of the usage and format.
         """
         FLASH_RUNNER = "west-flash-runner"
+        RUNNER_ARGUMENTS = "west-runner-arguments"
+        RUNNER_ARGUMENTS__ATTRS__ = (False, list)
 
     def __init__(self, port, baud, flow:str="no"):
         """  """
@@ -76,8 +78,10 @@ class ZephyrCi(Ci):
         Returns:
             context optionally augmented with plugin-specific preload data
         """
+        west_flash_args = ["west", "flash", "--skip-rebuild", "-r", context.get(self.Keys.FLASH_RUNNER), "--build-dir", "../../build-fprime-automatic-zephyr"]
+        west_flash_args += context.get(self.Keys.RUNNER_ARGUMENTS, [])
         process, _, (_, stderr) = self.subprocess(
-            ["west", "flash", "--skip-rebuild", "-r", context.get(self.Keys.FLASH_RUNNER), "--build-dir", "../../build-fprime-automatic-zephyr"],
+            west_flash_args,
             cwd="./lib/zephyr-workspace", capture=(False, True)
         )
         stderr = stderr.strip()
