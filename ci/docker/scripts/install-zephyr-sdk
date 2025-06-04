@@ -1,0 +1,28 @@
+#!/bin/sh
+BASE_URL="https://github.com/zephyrproject-rtos/sdk-ng/releases/download"
+VERSION="${1:-0.17.1}"
+echo "${TARGETPLATFORM} -- ${2}"
+TARGETPLATFORM="${2:-linux/amd64}"
+
+
+# Calculate the platform token for Zephyr SDK
+if [ "$TARGETPLATFORM" = "linux/amd64" ]
+then
+    PLATFORM=x86_64
+elif [ "$TARGETPLATFORM" = "linux/arm64" ]
+then
+    PLATFORM=aarch64
+else
+    echo "[ERROR] SDK requested for invalid platform: ${TARGETPLATFORM}"
+    exit 1
+fi
+
+# Get resources
+DOWNLOAD_URL="${BASE_URL}/v${VERSION}/zephyr-sdk-${VERSION}_linux-${PLATFORM}.tar.xz"
+echo "[DOWNLOAD] GETing and verifying: ${DOWNLOAD_URL}"
+wget -q "${DOWNLOAD_URL}"
+wget -q -O - "${BASE_URL}/v${VERSION}/sha256.sum" | shasum --check --ignore-missing
+
+# Unarchive and install
+mkdir -p /opt
+tar -C /opt -xf zephyr-sdk*.tar.xz
