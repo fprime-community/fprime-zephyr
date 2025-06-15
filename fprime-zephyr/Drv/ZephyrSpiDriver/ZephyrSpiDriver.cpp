@@ -29,7 +29,25 @@ ZephyrSpiDriver ::~ZephyrSpiDriver() {}
 void ZephyrSpiDriver ::SpiReadWrite_handler(FwIndexType portNum,
                                             Fw::Buffer &writeBuffer,
                                             Fw::Buffer &readBuffer) {
-  int status = spi_transceive_dt(&this->m_device, writeBuffer, readBuffer); 
+  // Set up write buffer
+  spi_buf write_buffers[1];
+  write_buffers[0].buf = writeBuffer.getData();
+  write_buffers[0].len = writeBuffer.getSize();
+  spi_buf_set write_buffer_set = {
+      .buffers = write_buffers,
+      .count = 1,
+  };
+
+  // Set up read buffer
+  spi_buf read_buffers[1];
+  read_buffers[0].buf = readBuffer.getData();
+  read_buffers[0].len = readBuffer.getSize();
+  spi_buf_set read_buffer_set = {
+      .buffers = read_buffers,
+      .count = 1,
+  };
+
+  int status = spi_transceive_dt(&this->m_device, &write_buffer_set, &read_buffer_set); 
   if(status <= 0){
     printk("SPI read/write error\n");
   }

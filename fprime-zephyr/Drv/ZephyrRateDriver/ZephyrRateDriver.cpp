@@ -35,7 +35,7 @@ namespace Zephyr{
     void ZephyrRateDriver::start()
     {
         U32 microseconds = this->m_interval * 1000;
-        Fw::Logger::log("Starting base rate group clock with period of %" PRIu32 " microseconds", microseconds);
+        Fw::Logger::log("Starting base rate group clock with period of %" PRIu32 " microseconds\n", microseconds);
         k_timer_init(&this->m_timer, NULL, NULL);
 
         /* start periodic timer */
@@ -51,7 +51,7 @@ namespace Zephyr{
     {
         // Cycling the rate group involves waiting on the timer to expire
         // then driving the rate groups
-        while (k_timer_status_sync(&this->m_timer) > 0)
+        if (k_timer_status_sync(&this->m_timer) > 0)
         {
             Os::RawTime now;
             now.now();
