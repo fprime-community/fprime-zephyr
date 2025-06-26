@@ -37,9 +37,12 @@ namespace Zephyr {
 
   void FatalHandler::reboot() {
 
-    // Use Zephyr to reboot the system
+    // Use Zephyr to reboot the system. https://docs.zephyrproject.org/apidoc/latest/reboot_8h.html#a18abe5d5b8089e8429c25bafa5e76d3d
+    // Attempt a warm reboot
+    sys_reboot(SYS_REBOOT_WARM);
+
+    // Attempt a cold reboot if the warm reboot fails
     sys_reboot(SYS_REBOOT_COLD);
-    while(1) {}
   }
 
   void FatalHandler::FatalReceive_handler(
