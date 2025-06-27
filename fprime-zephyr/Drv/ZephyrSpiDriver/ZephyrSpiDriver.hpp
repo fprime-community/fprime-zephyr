@@ -11,6 +11,8 @@
 
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/spi.h>
+#include <zephyr/device.h>
+
 
 namespace Zephyr {
 
@@ -28,6 +30,8 @@ public:
   //! Destroy ZephyrSpiDriver object
   ~ZephyrSpiDriver();
 
+  void configure(const struct device *dev, U32 baud_rate);
+
 PRIVATE:
   // ----------------------------------------------------------------------
   // Handler implementations for typed input ports
@@ -40,7 +44,8 @@ PRIVATE:
                             Fw::Buffer &writeBuffer,
                             Fw::Buffer &readBuffer) override;
 
-  struct spi_dt_spec m_device;
+
+  const struct device *m_dev;
 };
 
 } // namespace Zephyr
