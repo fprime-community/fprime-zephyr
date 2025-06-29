@@ -25,10 +25,23 @@ ZephyrSpiDriver ::~ZephyrSpiDriver() {}
 // ----------------------------------------------------------------------
 // Handler implementations for typed input ports
 // ----------------------------------------------------------------------
+void ZephyrSpiDriver::configure(const struct device *device, spi_config spiConfig){
+  FW_ASSERT(device != nullptr); 
+  // Driver only supports SPI Master mode 
+  FW_ASSERT(spiConfig.slave == 0); 
+  this->m_dev = device; 
+  this->m_spiConfig = spiConfig; 
+
+}
 
 void ZephyrSpiDriver ::SpiReadWrite_handler(FwIndexType portNum,
                                             Fw::Buffer &writeBuffer,
                                             Fw::Buffer &readBuffer) {
+  if (!device_is_ready(this->m_dev)) {
+    return;
+  }
+
+  struct spi_config spi_config = m_spiConfig; 
   // Set up write buffer
   spi_buf write_buffers[1];
   write_buffers[0].buf = writeBuffer.getData();
@@ -47,7 +60,7 @@ void ZephyrSpiDriver ::SpiReadWrite_handler(FwIndexType portNum,
       .count = 1,
   };
 
-  int status = spi_transceive_dt(&this->m_device, &write_buffer_set, &read_buffer_set); 
+  int status = spi_transceive(this->m_dev, &spi_config, &write_buffer_set, &read_buffer_set); 
   if(status <= 0){
     printk("SPI read/write error\n");
   }
