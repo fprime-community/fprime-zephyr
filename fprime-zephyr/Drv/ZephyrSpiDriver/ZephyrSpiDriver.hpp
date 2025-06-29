@@ -30,7 +30,7 @@ public:
   //! Destroy ZephyrSpiDriver object
   ~ZephyrSpiDriver();
 
-  void configure(const struct device *dev, U32 baud_rate);
+  void configure(const struct device *device, spi_config spiConfig);
 
 PRIVATE:
   // ----------------------------------------------------------------------
@@ -44,7 +44,7 @@ PRIVATE:
                             Fw::Buffer &writeBuffer,
                             Fw::Buffer &readBuffer) override;
 
-
+  struct spi_config m_spiConfig; 
   const struct device *m_dev;
 };
 
