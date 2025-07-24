@@ -69,15 +69,3 @@ register_fprime_implementation(
   SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/snprintk.cpp"
 )
-
-register_fprime_implementation(
-    Zephyr_StandardAtomic
-  IMPLEMENTS
-    StandardAtomic
-  INTERFACE
-  )
-target_include_directories(
-    Zephyr_StandardAtomic
-    BEFORE INTERFACE SYSTEM
-      "${CMAKE_CURRENT_LIST_DIR}/atomic"
-)
