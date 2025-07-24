@@ -75,6 +75,9 @@ register_fprime_implementation(
   IMPLEMENTS
     StandardAtomic
   INTERFACE
-  SOURCES
-    "${CMAKE_CURRENT_LIST_DIR}/StdAtomic.cpp"
+  )
+target_include_directories(
+    Zephyr_StandardAtomic
+    BEFORE INTERFACE SYSTEM
+      "${CMAKE_CURRENT_LIST_DIR}/atomic"
 )
