@@ -10,6 +10,7 @@ register_fprime_implementation(
     DEPENDS
         Fw_Types
         kernel
+        Fw_Time
     IMPLEMENTS
         Os_Task
 )
