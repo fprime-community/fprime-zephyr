@@ -25,6 +25,7 @@ register_fprime_implementation(
     DEPENDS
         Fw_Types
         kernel
+        Fw_Time
     IMPLEMENTS
         Os_Mutex
 )
@@ -39,6 +40,7 @@ register_fprime_implementation(
     DEPENDS
         Fw_Types
         kernel
+        Fw_Time
     IMPLEMENTS
         Os_RawTime
 )

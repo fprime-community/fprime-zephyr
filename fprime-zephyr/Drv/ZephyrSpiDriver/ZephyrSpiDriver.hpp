@@ -28,7 +28,7 @@ public:
   //! Destroy ZephyrSpiDriver object
   ~ZephyrSpiDriver();
 
-PRIVATE:
+private:
   // ----------------------------------------------------------------------
   // Handler implementations for typed input ports
   // ----------------------------------------------------------------------
