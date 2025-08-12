@@ -55,7 +55,7 @@ namespace Zephyr {
         //!< Interval of the driver
         U32 m_interval;
 
-    PRIVATE:
+    private:
         //!< Last time of run
         struct k_timer m_timer;
 

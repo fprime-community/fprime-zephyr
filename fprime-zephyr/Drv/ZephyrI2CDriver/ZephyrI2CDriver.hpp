@@ -34,7 +34,7 @@ namespace Zephyr {
         //! Destroy ZephyrI2CDriver object
         ~ZephyrI2CDriver();
 
-    PRIVATE:
+    private:
         // ----------------------------------------------------------------------
         // Handler implementations for typed input ports
         // ----------------------------------------------------------------------

@@ -43,7 +43,7 @@ namespace Zephyr {
       //! open GPIO
        Os::File::Status open(struct gpio_dt_spec gpio, GpioConfiguration configuration);
 
-    PRIVATE:
+    private:
 
       // ----------------------------------------------------------------------
       // Handler implementations for user-defined typed input ports

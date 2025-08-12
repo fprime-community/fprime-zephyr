@@ -88,7 +88,7 @@ namespace Task {
         //! \brief return the underlying task handle (implementation specific)
         //! \return internal task handle representation
         TaskHandle* getHandle() override;
-      PRIVATE:
+      private:
         ZephyrTaskHandle m_handle; //!< Zephyr task tracking
     };
 } // end namespace Task
