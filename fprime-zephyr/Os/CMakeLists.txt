@@ -8,6 +8,7 @@ register_fprime_implementation(
     HEADERS
        "${CMAKE_CURRENT_LIST_DIR}/Task.hpp"
     DEPENDS
+        Fw_Time
         Fw_Types
         kernel
     IMPLEMENTS
@@ -38,6 +39,7 @@ register_fprime_implementation(
        "${CMAKE_CURRENT_LIST_DIR}/RawTime.hpp"
     DEPENDS
         Fw_Types
+        Fw_Time
         kernel
     IMPLEMENTS
         Os_RawTime
