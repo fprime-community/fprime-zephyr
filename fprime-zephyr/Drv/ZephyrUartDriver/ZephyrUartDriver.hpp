@@ -62,7 +62,7 @@ namespace Zephyr {
 
         //! Handler implementation for send
         //!
-        void send_handler(
+        Drv::ByteStreamStatus send_handler(
             const FwIndexType portNum, /*!< The port number*/
             Fw::Buffer &sendBuffer 
         );

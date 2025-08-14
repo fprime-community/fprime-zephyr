@@ -1,8 +1,6 @@
 module Zephyr {
 
   passive component ZephyrUartDriver {
-    # Assumes the standard structure where fprime and fprime-zephyr are parallel
-    # directories
     import Drv.ByteStreamDriver
 
     @ Polled sched-in for reading UART

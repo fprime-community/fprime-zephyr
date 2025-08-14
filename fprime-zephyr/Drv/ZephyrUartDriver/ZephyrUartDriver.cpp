@@ -98,7 +98,7 @@ namespace Zephyr {
         recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
     }
 
-    void ZephyrUartDriver ::
+    Drv::ByteStreamStatus ZephyrUartDriver ::
         send_handler(
             const FwIndexType portNum,
             Fw::Buffer &sendBuffer
@@ -107,9 +107,7 @@ namespace Zephyr {
         for (U32 i = 0; i < sendBuffer.getSize(); i++) {
             uart_poll_out(this->m_dev, sendBuffer.getData()[i]);
         }
-        if (this->isConnected_sendReturnOut_OutputPort(0)) {
-            this->sendReturnOut_out(0, sendBuffer, Drv::ByteStreamStatus::OP_OK);
-        }
+        return Drv::ByteStreamStatus::OP_OK;
     }
 
     void ZephyrUartDriver ::recvReturnIn_handler(const FwIndexType portNum, Fw::Buffer &returnBuffer) {
