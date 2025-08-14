@@ -43,7 +43,7 @@ namespace Zephyr {
       //! open GPIO
        Os::File::Status open(struct gpio_dt_spec gpio, GpioConfiguration configuration);
 
-    PRIVATE:
+    private:
 
       // ----------------------------------------------------------------------
       // Handler implementations for user-defined typed input ports
@@ -53,14 +53,14 @@ namespace Zephyr {
       //!
       Drv::GpioStatus gpioRead_handler(
           const FwIndexType portNum, /*!< The port number*/
-          Fw::Logic &state 
+          Fw::Logic &state
       );
 
       //! Handler implementation for gpioWrite
       //!
       Drv::GpioStatus gpioWrite_handler(
           const FwIndexType portNum, /*!< The port number*/
-          const Fw::Logic &state 
+          const Fw::Logic &state
       );
 
       struct gpio_dt_spec m_pin;
