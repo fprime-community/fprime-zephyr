@@ -11,6 +11,7 @@ register_fprime_implementation(
         Fw_Time
         Fw_Types
         kernel
+        Fw_Time
     IMPLEMENTS
         Os_Task
 )
@@ -26,6 +27,7 @@ register_fprime_implementation(
     DEPENDS
         Fw_Types
         kernel
+        Fw_Time
     IMPLEMENTS
         Os_Mutex
 )
@@ -41,6 +43,7 @@ register_fprime_implementation(
         Fw_Types
         Fw_Time
         kernel
+        Fw_Time
     IMPLEMENTS
         Os_RawTime
 )
@@ -68,4 +71,3 @@ register_fprime_implementation(
   SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/snprintk.cpp"
 )
-   
