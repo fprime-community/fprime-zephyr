@@ -79,7 +79,7 @@ function(register_fprime_zephyr_deployment)
     
     )
     # Integration with fprime-util is now done via special methods that write-out special metadata. Since we've
-    # defined a new qay of registering deployments, we must also replicate the target integration metadata.
+    # defined a new way of registering deployments, we must also replicate the target integration metadata.
     include(fprime-util)
     fprime_util_metadata_add_build_target("${BUILD_TARGET_NAME}")
 endfunction()
