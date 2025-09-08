@@ -24,7 +24,7 @@ namespace Zephyr {
     ZephyrI2CDriver ::~ZephyrI2CDriver() {}
 
     //  I2CConfiguration configuration ? 
-    Os::File::Status ZephyrI2CDriver::open(struct i2c_dt_spec i2c_device){
+    Os::File::Status ZephyrI2CDriver::open(const struct i2c_dt_spec i2c_device){
       this->m_device = i2c_device;
       if(!i2c_is_ready_dt(&this->m_device)){
         return Os::File::Status::NOT_OPENED;
@@ -37,7 +37,7 @@ namespace Zephyr {
     // Handler implementations for typed input ports
     // ----------------------------------------------------------------------
 
-    Drv::I2cStatus ZephyrI2CDriver ::i2cread_handler(FwIndexType portNum, U16 addr,
+    Drv::I2cStatus ZephyrI2CDriver ::read_handler(FwIndexType portNum, U32 addr,
                                                   Fw::Buffer &serBuffer) {
       int status = i2c_read_dt(&this->m_device, serBuffer.getData(), serBuffer.getSize()); 
       if(status != 0){
@@ -46,11 +46,20 @@ namespace Zephyr {
       return Drv::I2cStatus::I2C_OK;
     }
 
-    Drv::I2cStatus ZephyrI2CDriver ::i2cwrite_handler(FwIndexType portNum, U16 addr,
+    Drv::I2cStatus ZephyrI2CDriver ::write_handler(FwIndexType portNum, U32 addr,
                                                   Fw::Buffer &serBuffer) {
       int status = i2c_write_dt(&this->m_device, serBuffer.getData(), serBuffer.getSize()); 
       if(status != 0){
         printk("I2C write error\n");
+      }
+      return Drv::I2cStatus::I2C_OK;
+    }
+
+    Drv::I2cStatus ZephyrI2CDriver ::writeRead_handler(FwIndexType portNum, U32 addr,
+      Fw::Buffer &writeBuffer, Fw::Buffer &readBuffer) {
+      int status = i2c_write_read_dt(&this->m_device, writeBuffer.getData(), writeBuffer.getSize(), readBuffer.getData(), readBuffer.getSize()); 
+      if(status != 0){
+          printk("I2C write error\n");
       }
       return Drv::I2cStatus::I2C_OK;
     }

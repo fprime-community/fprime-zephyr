@@ -39,22 +39,24 @@ namespace Zephyr {
         // Handler implementations for typed input ports
         // ----------------------------------------------------------------------
 
-        //! Handler implementation for read
-        //!
-        //! Port for guarded synchronous reading from I2C
-        Drv::I2cStatus i2cread_handler(FwIndexType portNum,  //!< The port number
-                    U16 addr,             //!< I2C slave device address
-                    Fw::Buffer &serBuffer //!< Buffer with data to read/write to/from
-        );
+         //! Handler implementation for write
+    //!
+    Drv::I2cStatus write_handler(const FwIndexType portNum, /*!< The port number*/
+      U32 addr,
+      Fw::Buffer& serBuffer) override;
 
-        //! Handler implementation for write
-        //!
-        //! Port for guarded synchronous writing to I2C
-        Drv::I2cStatus i2cwrite_handler(
-            FwIndexType portNum,  //!< The port number
-            U16 addr,             //!< I2C slave device address
-            Fw::Buffer &serBuffer //!< Buffer with data to read/write to/from
-        );
+    //! Handler implementation for read
+    //!
+    Drv::I2cStatus read_handler(const FwIndexType portNum, /*!< The port number*/
+        U32 addr,
+        Fw::Buffer& serBuffer) override;
+
+    //! Handler implementation for writeRead
+    //!
+    Drv::I2cStatus writeRead_handler(const FwIndexType portNum, /*!< The port number*/
+          U32 addr,
+          Fw::Buffer& writeBuffer,
+          Fw::Buffer& readBuffer) override;
 
         struct i2c_dt_spec m_device; // has a pointer to I2C bus, and target address (U16)
   };
