@@ -42,9 +42,14 @@ function(register_fprime_zephyr_deployment)
     list(LENGTH INTERNAL_UNPARSED_ARGUMENTS UNPARSED_COUNT)
     fprime_cmake_ASSERT("Failed to parse: ${INTERNAL_UNPARSED_ARGUMENTS}" UNPARSED_COUNT LESS 2)
     if (INTERNAL_UNPARSED_ARGUMENTS)
+        list(LENGTH INTERNAL_UNPARSED_ARGUMENTS UNKNOWN_LENGTH)
+        fprime_cmake_ASSERT("Unknown argument supplied: ${INTERNAL_UNPARSED_ARGUMENTS}"  UNKNOWN_LENGTH EQUAL 1) 
         set(BUILD_TARGET_NAME "${INTERNAL_UNPARSED_ARGUMENTS}")
     endif()
-    # Register an interface library substituted as the F Prime deployment
+    # Register an interface library substituted as the F Prime deployment for the purposes of setting up the fprime
+    # deployment specific targets. We cannot use "app" here, because it was defined in another CMake directory
+    # and so we use a specific target name.
+    fprime_cmake_ASSERT("Zephyr supports only one deployment per project" NOT TARGET fprime-zephyr-deployment)
     add_library(fprime-zephyr-deployment "${EMPTY_SOURCE}")
     fprime_target_dependencies(fprime-zephyr-deployment PUBLIC ${INTERNAL_DEPENDS})
     set_target_properties(fprime-zephyr-deployment PROPERTIES
@@ -57,7 +62,10 @@ function(register_fprime_zephyr_deployment)
     fprime_target_implementations(app ${INTERNAL_CHOOSES_IMPLEMENTATIONS})
     target_link_libraries(app PRIVATE fprime-zephyr-deployment)
 
-    # Add a custom target built by this module to do the final zephyr install
+
+    # Add a custom target built by this module to do the final zephyr install. This will be named based on what
+    # should have been the deployment name, will depend on the zephyr-final binary, and will perform the installation
+    # of the outputs.
     install(
         DIRECTORY ${CMAKE_BINARY_DIR}/zephyr/
         COMPONENT fprime-zephyr-binaries
@@ -65,9 +73,13 @@ function(register_fprime_zephyr_deployment)
         FILES_MATCHING PATTERN "zephyr/zephyr.*"
         REGEX "zephyr/[^z]" EXCLUDE
     )
-    add_custom_target(${BUILD_TARGET_NAME} ALL DEPENDS zephyr_final
+    add_custom_target(${BUILD_TARGET_NAME} ALL DEPENDS zephyr_final fprime-zephyr-deployment_dictionary
         COMMAND "${CMAKE_COMMAND}"
             -DCMAKE_INSTALL_COMPONENT=fprime-zephyr-binaries -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
     
     )
+    # Integration with fprime-util is now done via special methods that write-out special metadata. Since we've
+    # defined a new way of registering deployments, we must also replicate the target integration metadata.
+    include(fprime-util)
+    fprime_util_metadata_add_build_target("${BUILD_TARGET_NAME}")
 endfunction()
