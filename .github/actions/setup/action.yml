@@ -11,7 +11,7 @@ runs:
     - name: "Install CI tooling"
       run: |
         echo "$GITHUB_ACTION_PATH"
-        CI_TOOLS_PATH="$(cd $(dirname "$GITHUB_ACTION_PATH")/../../../ci && pwd)"
+        CI_TOOLS_PATH="$(cd $(dirname "$GITHUB_ACTION_PATH")/../../ci && pwd)"
         echo "CI Tools Path: $CI_TOOLS_PATH"
         pip3 install "${CI_TOOLS_PATH}"
       shell: bash
