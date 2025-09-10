@@ -49,3 +49,4 @@ zephyr_ci = "fprime_zephyr.plugins.zephyr_ci:ZephyrCi"
 # See https://setuptools.pypa.io/en/latest/userguide/datafiles.html
 ####
 [tool.setuptools_scm]
+root = ".."
