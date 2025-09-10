@@ -15,7 +15,6 @@ extra-build-arguments:
   - FprimeZephyrReference_ReferenceDeployment
 
 extra-generate-arguments:
-  - --ninja
   - -DFPRIME_CI_FAILSAFE_ENABLED=ON
 
 extra-gds-arguments:
