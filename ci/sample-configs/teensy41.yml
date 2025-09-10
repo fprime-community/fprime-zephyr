@@ -12,12 +12,11 @@ jobs: 4
 
 extra-build-arguments:
   - --target
-  - fprime-zephyr-reference_ReferenceDeployment
+  - FprimeZephyrReference_ReferenceDeployment
 
 extra-generate-arguments:
   - --ninja
   - -DFPRIME_CI_FAILSAFE_ENABLED=ON
-  - -DZEPHYR_SDK_INSTALL_DIR=/ci/builds/zephyr-sdk-0.17.1
 
 extra-gds-arguments:
   - --zmq-transport
@@ -47,6 +46,3 @@ plugin:
 
 # Plugin required keys
 west-flash-runner: teensy
-west-runner-arguments:
-  - --teensy
-  - /ci/tools/teensy_loader_cli/teensy_loader_cli
