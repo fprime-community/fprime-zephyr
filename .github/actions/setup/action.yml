@@ -1,0 +1,23 @@
+name: 'Zephyr CI Setup'
+description: 'Set up Zephyr environment for Zephyr CI'
+inputs:
+  workspace_directory:
+    description: "Path to Zephyr workspace"
+    required: true
+    type: string
+runs:
+  using: "composite"
+  steps:
+    - name: "Install CI tooling"
+      run: |
+        echo "$GITHUB_ACTION_PATH"
+        CI_TOOLS_PATH="$(cd $(dirname "$GITHUB_ACTION_PATH")/../../../ci && pwd)"
+        echo "CI Tools Path: $CI_TOOLS_PATH"
+        pip3 install "${CI_TOOLS_PATH}"
+      shell: bash
+    - name: "Zephyr Setup"
+      run: |
+          cd ${{ inputs.workspace_directory }}
+          west update
+          west sdk install
+      shell: bash
