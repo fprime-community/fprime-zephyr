@@ -42,6 +42,7 @@ Repository = "https://github.jpl.nasa.gov/FPRIME/ci-tools"
 
 [project.entry-points.fprime_gds]
 zephyr_ci = "fprime_zephyr.plugins.zephyr_ci:ZephyrCi"
+zephyr_ci_unified = "fprime_zephyr.plugins.zephyr_ci:ZephyrCiUnified"
 
 ####
 # setuptools_scm dynamically generates version number from git, as well as automatically

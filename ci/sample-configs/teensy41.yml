@@ -1,11 +1,13 @@
 # Required by the CI system
 deployment-name: ReferenceDeployment
 platform-name: zephyr
-test-script: fprime-zephyr-reference/ReferenceDeployment/test/int/test_zephyr_reference.py
+test-scripts: 
+  - lib/fprime/Svc/CmdDispatcher/test/int/test_cmd_dispatcher.py
+  - lib/fprime/Svc/EventManager/test/int/test_cmd_eventManager.py 
 # Zephyr uses custom dictionary path
 dictionary: build-artifacts/zephyr/fprime-zephyr-deployment/dict/ReferenceDeploymentTopologyDictionary.json
 # West flashes from the build-cache
-executable: build-fprime-automatic-zephyr/zephyr/zephyr.hex
+executable: build-artifacts/zephyr.hex
 
 # Optional CI system config
 jobs: 4
@@ -28,20 +30,28 @@ extra-gds-arguments:
   - --uart-device
   - /dev/ttyACM0
   - --uart-skip-port-check
-  - --gui-port
-  - "4444"
+  - --output-unframed-data
+  - "/tmp/unframed"
+  - --gui
+  - none
 
 extra-pytest-arguments:
   - -s
   - --zmq-transport
   - ipc:///tmp/fprime-server-ci-in
   - ipc:///tmp/fprime-server-ci-out
+  - --deployment-config
+  - FprimeZephyrReference/ReferenceDeployment/test/int/int_config.json
 
 # Plugin CLI arguments
-plugin:
-  ci-selection: zephyr-ci
-  port: /dev/ttyUSB1
-  baud: 115200
+command-line-options:
+  ci-selection: zephyr-ci-unified
+  port: /dev/ttyACM0
+  unframed-output: /tmp/unframed
 
 # Plugin required keys
-west-flash-runner: teensy
+flash-command:
+  - teensy_loader_cli
+  - --mcu=teensy41
+  - -w
+  - ./build-artifacts/zephyr.hex
