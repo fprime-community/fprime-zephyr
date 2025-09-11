@@ -6,11 +6,8 @@ test-scripts:
   - lib/fprime/Svc/EventManager/test/int/test_cmd_eventManager.py 
 # Zephyr uses custom dictionary path
 dictionary: build-artifacts/zephyr/fprime-zephyr-deployment/dict/ReferenceDeploymentTopologyDictionary.json
-# West flashes from the build-cache
 executable: build-artifacts/zephyr.hex
-
-# Optional CI system config
-jobs: 4
+archive-path: ./ci-archive.tar.gz
 
 extra-build-arguments:
   - --target
