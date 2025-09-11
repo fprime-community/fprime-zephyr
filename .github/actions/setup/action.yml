@@ -5,6 +5,11 @@ inputs:
     description: "Path to Zephyr workspace"
     required: true
     type: string
+  stage: 
+    description: "Stage of the CI process"
+    required: false
+    default: "all"
+    type: string
 runs:
   using: "composite"
   steps:
@@ -16,6 +21,7 @@ runs:
         pip3 install "${CI_TOOLS_PATH}"
       shell: bash
     - name: "Zephyr Setup"
+      if: ${{ inputs.stage == 'all' || inputs.stage == 'build' }}
       run: |
           cd ${{ inputs.workspace_directory }}
           west update
