@@ -27,3 +27,11 @@ runs:
           west update
           west sdk install
       shell: bash
+    - name: "Set Flashing Tools"
+      run: |
+          sudo apt-get install libusb-dev || true
+          git clone https://github.com/PaulStoffregen/teensy_loader_cli
+          cd teensy_loader_cli
+          make
+          echo PATH="$(pwd):$PATH" >> $GITHUB_ENV
+      shell: bash

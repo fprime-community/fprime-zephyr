@@ -7,7 +7,7 @@ test-scripts:
 # Zephyr uses custom dictionary path
 dictionary: build-artifacts/zephyr/fprime-zephyr-deployment/dict/ReferenceDeploymentTopologyDictionary.json
 executable: build-artifacts/zephyr.hex
-archive-path: ./ci-archive.tar.gz
+archive-path: ./archive.tar.gz
 
 extra-build-arguments:
   - --target
