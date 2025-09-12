@@ -40,6 +40,10 @@ runs:
       if: ${{ inputs.stage == 'all' || inputs.stage == 'int' }}
       run: |
           sudo apt-get install jimtcl || true
+          sudo apt-get install libtool || true
+          sudo apt-get install autoconf || true
+          sudo apt-get install automake || true
+          sudo apt-get install pkg-config || true
           git clone https://github.com/raspberrypi/openocd.git
           cd openocd
           git submodule update --init --recursive
