@@ -27,11 +27,21 @@ runs:
           west update
           west sdk install
       shell: bash
-    - name: "Set Flashing Tools"
+    - name: "Set Flashing Tools:teensy41"
       run: |
           sudo apt-get install libusb-dev || true
           git clone https://github.com/PaulStoffregen/teensy_loader_cli
           cd teensy_loader_cli
           make
           echo PATH="$(pwd):$PATH" >> $GITHUB_ENV
+      shell: bash
+    - name: "Set Flashing Tools:pico2"
+      run: |
+          git clone https://github.com/raspberrypi/openocd.git
+          cd openocd
+          git submodule update -—init -—recursive
+          ./bootstrap
+          ./configure --disable-werror
+          make
+          echo PATH="$(pwd)/src:$PATH" >> $GITHUB_ENV
       shell: bash
