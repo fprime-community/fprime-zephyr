@@ -77,12 +77,9 @@ class ZephyrCiBase(Ci, ABC):
             context optionally augmented with plugin-specific preload data
         """
         flash_command = context.get(self.Keys.FLASH_COMMAND, None)
-        process, _, (_, stderr) = self.subprocess(
-            flash_command, capture=(False, True)
+        process, _, (_, _) = self.subprocess(
+            flash_command
         )
-        stderr = stderr.strip()
-        if stderr:
-            raise Exception(f"'{' '.join(flash_command)}' produced stderr: {stderr}")
         # Make sure that the console port is openable then open it
         self.wait_until(lambda: Path(self.port).exists(), timeout=1.0)
         return context
