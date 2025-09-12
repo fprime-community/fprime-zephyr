@@ -39,7 +39,7 @@ runs:
       run: |
           git clone https://github.com/raspberrypi/openocd.git
           cd openocd
-          git submodule update -—init -—recursive
+          git submodule update --init --recursive
           ./bootstrap
           ./configure --disable-werror
           make
