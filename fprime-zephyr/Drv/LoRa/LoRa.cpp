@@ -5,7 +5,6 @@
 // ======================================================================
 
 #include "fprime-zephyr/Drv/LoRa/LoRa.hpp"
-#include "Fw/Logger/Logger.hpp"
 #include "zephyr-config/LoRaCfg.hpp"
 
 namespace Zephyr {
@@ -45,7 +44,7 @@ LoRa::Status LoRa ::start(const struct device* lora_device) {
 
     LoRa::Status config_status = this->enableRx();
     if (config_status != Status::SUCCESS) {
-        Fw::Logger::log("Failed to enable Rx");
+        this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
         return LoRa::Status::ERROR;
     }
     Fw::Success status = Fw::Success::SUCCESS;
@@ -135,7 +134,7 @@ void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
     const FwSizeType payload_size = static_cast<FwSizeType>(size - sizeof(LoRaConfig::HEADER));
     Fw::Buffer buffer = this->allocate_out(0, payload_size);
     if (buffer.isValid()) {
-        ::memcpy(buffer.getData() + sizeof(LoRaConfig::HEADER), data, payload_size);
+        ::memcpy(buffer.getData(), data + sizeof(LoRaConfig::HEADER), payload_size);
         ComCfg::FrameContext frameContext;
         this->dataOut_out(0, buffer, frameContext);
     } else {
