@@ -25,7 +25,8 @@ extra-gds-arguments:
   - --uart-baud
   - "115200"
   - --uart-device
-  - /dev/ttyACM0
+  #- /dev/ttyACM0
+  - /dev/tty.usbmodem3201
   - --uart-skip-port-check
   - --output-unframed-data
   - "/tmp/unframed"
@@ -43,7 +44,8 @@ extra-pytest-arguments:
 # Plugin CLI arguments
 command-line-options:
   ci-selection: zephyr-ci-unified
-  port: /dev/ttyACM0
+  #port: /dev/ttyACM0
+  port: /dev/tty.usbmodem3201
   unframed-output: /tmp/unframed
 
 # Plugin required keys
