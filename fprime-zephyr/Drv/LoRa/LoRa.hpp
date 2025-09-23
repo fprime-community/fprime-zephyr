@@ -16,7 +16,7 @@ namespace Zephyr {
 class LoRa final : public LoRaComponentBase {
   public:
     //! Maximum payload size of the LoRa radio. This is a hardware property.
-    static constexpr FwSizeType MAX_PACKET_SIZE = 252; 
+    static constexpr FwSizeType MAX_PACKET_SIZE = 252;
     // Status returned from various LoRa operations
     enum Status { NOT_READY, NOT_INITIALIZED, ERROR, SUCCESS };
     // ----------------------------------------------------------------------

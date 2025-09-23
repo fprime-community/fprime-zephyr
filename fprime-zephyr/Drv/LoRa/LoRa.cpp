@@ -102,8 +102,8 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     Fw::Success returnStatus = Fw::Success::SUCCESS;
     Status status = this->enableTx();
     if (status == Status::SUCCESS) {
-        (void) ::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
-        (void) ::memcpy(this->m_send_buffer + sizeof(LoRaConfig::HEADER), data.getData(), data.getSize());
+        (void)::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
+        (void)::memcpy(this->m_send_buffer + sizeof(LoRaConfig::HEADER), data.getData(), data.getSize());
         int send_status =
             lora_send(this->m_lora_device, this->m_send_buffer, sizeof(LoRaConfig::HEADER) + data.getSize());
         if (send_status != 0) {
@@ -136,7 +136,7 @@ void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
     const FwSizeType payload_size = static_cast<FwSizeType>(size - sizeof(LoRaConfig::HEADER));
     Fw::Buffer buffer = this->allocate_out(0, payload_size);
     if (buffer.isValid()) {
-        (void) ::memcpy(buffer.getData(), data + sizeof(LoRaConfig::HEADER), payload_size);
+        (void)::memcpy(buffer.getData(), data + sizeof(LoRaConfig::HEADER), payload_size);
         ComCfg::FrameContext frameContext;
         this->dataOut_out(0, buffer, frameContext);
     } else {
