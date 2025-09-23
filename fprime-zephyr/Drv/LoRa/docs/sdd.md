@@ -15,7 +15,7 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 | LORA-03 | The LoRa component shall provide FREQUENCY, BANDWITH, TRANSMIT_POWER, and PREAMBLE as configurable parameters | Unit-Test |
 | LORA-04 | The LoRa component shall telemeter BytesSent and BytesRecv channels | Unit-Test |
 | LORA-05 | The LoRa component shall support the Svc.Com interface | Unit-Test |
-| LORA-06 | The LoRa component shall have a TEST_CW command for continuous-wave | Unit-Test |
+| LORA-06 | The LoRa component shall have a continuous wave command | Unit-Test |
 | LORA-07 | The LoRa component shall wrap the Zephyr LoRa driver | Unit-Test |
 | LORA-08 | The LoRa component shall configure the Zephyr LoRa driver for tranmit only when sending data | Unit-Test |
 
@@ -40,7 +40,7 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 
 | Name | Description |
 |------|---|
-| TEST_CW | Send continuous wave for a supplied duration |
+| CONTINUOUS_WAVE | Send continuous wave for a supplied duration |
 
 ## Parameters
 

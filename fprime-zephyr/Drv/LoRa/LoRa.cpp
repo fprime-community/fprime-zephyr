@@ -37,10 +37,11 @@ LoRa ::LoRa(const char* const compName) : LoRaComponentBase(compName) {}
 LoRa ::~LoRa() {}
 
 LoRa::Status LoRa ::start(const struct device* lora_device) {
+    this->m_lora_device = lora_device;
+    FW_ASSERT(lora_device != nullptr);
     if (!device_is_ready(lora_device)) {
         return NOT_READY;
     }
-    this->m_lora_device = lora_device;
 
     LoRa::Status config_status = this->enableRx();
     if (config_status != Status::SUCCESS) {
@@ -60,7 +61,7 @@ LoRa::Status LoRa ::enableTx() {
     FW_ASSERT(isValid != Fw::ParamValid::VALID, static_cast<FwAssertArgType>(isValid));
 
     // Disable async receive while in TX mode
-    int status = lora_recv_async(this->m_lora_device, NULL, NULL);
+    int status = lora_recv_async(this->m_lora_device, nullptr, nullptr);
     if (status == 0) {
         // Update BASE_CONFIG in-place to save on stack space
         BASE_CONFIG.tx = true;
@@ -95,14 +96,14 @@ LoRa::Status LoRa ::enableRx() {
 
 void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::FrameContext& context) {
     Os::ScopeLock lock(this->m_mutex);
-    FW_ASSERT(data.getSize() + sizeof(LoRaConfig::HEADER) <= 252, data.getSize());
+    FW_ASSERT(data.getSize() + sizeof(LoRaConfig::HEADER) <= LoRa::MAX_PACKET_SIZE, data.getSize());
     FW_ASSERT(this->m_lora_device != nullptr);
     FW_ASSERT(device_is_ready(this->m_lora_device));
     Fw::Success returnStatus = Fw::Success::SUCCESS;
     Status status = this->enableTx();
     if (status == Status::SUCCESS) {
-        ::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
-        ::memcpy(this->m_send_buffer + sizeof(LoRaConfig::HEADER), data.getData(), data.getSize());
+        (void) ::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
+        (void) ::memcpy(this->m_send_buffer + sizeof(LoRaConfig::HEADER), data.getData(), data.getSize());
         int send_status =
             lora_send(this->m_lora_device, this->m_send_buffer, sizeof(LoRaConfig::HEADER) + data.getSize());
         if (send_status != 0) {
@@ -131,14 +132,15 @@ void LoRa ::dataReturnIn_handler(FwIndexType portNum, Fw::Buffer& data, const Co
 }
 
 void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
+    FW_ASSERT(data != nullptr);
     const FwSizeType payload_size = static_cast<FwSizeType>(size - sizeof(LoRaConfig::HEADER));
     Fw::Buffer buffer = this->allocate_out(0, payload_size);
     if (buffer.isValid()) {
-        ::memcpy(buffer.getData(), data + sizeof(LoRaConfig::HEADER), payload_size);
+        (void) ::memcpy(buffer.getData(), data + sizeof(LoRaConfig::HEADER), payload_size);
         ComCfg::FrameContext frameContext;
         this->dataOut_out(0, buffer, frameContext);
     } else {
-        this->log_WARNING_HI_AllocationFailed(size);
+        this->log_WARNING_HI_AllocationFailed(payload_size);
     }
     this->tlmWrite_LastRssi(rssi);
     this->tlmWrite_LastSnr(snr);
