@@ -19,10 +19,6 @@ module Zephyr {
         Receive
     }
 
-    # TODO: Implement the LoRa driver functionality
-    # 1. Telemetry
-    # 2. Commands
-
     @ Wrapper for the Zephyr LoRa driver
     passive component LoRa {
         @ Import the communication interface
@@ -37,7 +33,7 @@ module Zephyr {
         @ Data rate / spreading factor
         param DATA_RATE: LoRaDataRate default LoRaDataRate.SF_8
 
-        @ No-op command
+        @ Continuous wave transmission
         sync command CONTINUOUS_WAVE(seconds: U16)
 
         @ Event to indicate configuration failure
