@@ -28,7 +28,7 @@ extra-gds-arguments:
   - --uart-baud
   - "115200"
   - --uart-device
-  - /dev/ttyACM0
+  - /dev/pico2
   - --uart-skip-port-check
   - --output-unframed-data
   - "/tmp/unframed"
@@ -46,7 +46,7 @@ extra-pytest-arguments:
 # Plugin CLI arguments
 command-line-options:
   ci-selection: zephyr-ci-unified
-  port: /dev/ttyACM0
+  port: /dev/pico2
   unframed-output: /tmp/unframed
 
 # Plugin required keys
