@@ -18,6 +18,7 @@ extra-build-arguments:
 
 extra-generate-arguments:
   - -DBOARD=rpi_pico2/rp2350a/m33
+  - -DFPRIME_CI_FAILSAFE_ENABLED=ON
 
 extra-gds-arguments:
   - --zmq-transport
