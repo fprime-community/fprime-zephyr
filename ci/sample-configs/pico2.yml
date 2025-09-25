@@ -4,19 +4,20 @@ platform-name: zephyr
 test-scripts: 
   - lib/fprime/Svc/CmdDispatcher/test/int/test_cmd_dispatcher.py
   - lib/fprime/Svc/EventManager/test/int/test_cmd_eventManager.py 
-  - FprimeZephyrReference/ReferenceDeployment/test/int/test_reboot_machine.py
 # Zephyr uses custom dictionary path
 dictionary: build-artifacts/zephyr/fprime-zephyr-deployment/dict/ReferenceDeploymentTopologyDictionary.json
 executable: build-artifacts/zephyr.hex
 archive-path: ./archive.tar.gz
+
+extra-archive-files:
+  - lib/zephyr-workspace/zephyr/boards/raspberrypi/rpi_pico2/support/openocd.cfg
 
 extra-build-arguments:
   - --target
   - FprimeZephyrReference_ReferenceDeployment
 
 extra-generate-arguments:
-  - -DBOARD=teensy41
-  - -DFPRIME_CI_FAILSAFE_ENABLED=ON
+  - -DBOARD=rpi_pico2/rp2350a/m33
 
 extra-gds-arguments:
   - --zmq-transport
@@ -27,7 +28,7 @@ extra-gds-arguments:
   - --uart-baud
   - "115200"
   - --uart-device
-  - /dev/teensy41
+  - /dev/pico2
   - --uart-skip-port-check
   - --output-unframed-data
   - "/tmp/unframed"
@@ -45,12 +46,31 @@ extra-pytest-arguments:
 # Plugin CLI arguments
 command-line-options:
   ci-selection: zephyr-ci-unified
-  port: /dev/teensy41
+  port: /dev/pico2
   unframed-output: /tmp/unframed
 
 # Plugin required keys
 flash-command:
-  - teensy_loader_cli
-  - --mcu=teensy41
-  - -w
-  - ./build-artifacts/zephyr.hex
+  - openocd
+  - -s
+  - ./openocd/tcl
+  - -f
+  - openocd.cfg
+  - -c
+  - 'source [find interface/cmsis-dap.cfg]'
+  - -c
+  - 'source [find target/rp2350.cfg]'
+  - -c
+  - 'set_adapter_speed_if_not_set 5000'
+  - -c
+  - init
+  - -c
+  - targets
+  - -c
+  - 'reset init'
+  - -c
+  - 'flash write_image erase ./build-artifacts/zephyr.hex'
+  - -c
+  - 'reset run'
+  - -c
+  - shutdown
