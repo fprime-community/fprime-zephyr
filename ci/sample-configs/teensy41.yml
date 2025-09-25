@@ -4,6 +4,7 @@ platform-name: zephyr
 test-scripts: 
   - lib/fprime/Svc/CmdDispatcher/test/int/test_cmd_dispatcher.py
   - lib/fprime/Svc/EventManager/test/int/test_cmd_eventManager.py 
+  - FprimeZephyrReference/ReferenceDeployment/test/int/test_reboot_machine.py
 # Zephyr uses custom dictionary path
 dictionary: build-artifacts/zephyr/fprime-zephyr-deployment/dict/ReferenceDeploymentTopologyDictionary.json
 executable: build-artifacts/zephyr.hex
