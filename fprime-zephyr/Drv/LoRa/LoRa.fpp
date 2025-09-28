@@ -25,7 +25,7 @@ module Zephyr {
         import Svc.Com
 
         @ Import the allocation interface
-        import Svc.Allocation
+        import Svc.BufferAllocation
 
         @ Coding rate: number of parity bits per 4 bit
         param CODING_RATE: LoRaCodingRate default LoRaCodingRate.CR_4_5
