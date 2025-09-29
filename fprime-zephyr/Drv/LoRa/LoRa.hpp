@@ -7,9 +7,9 @@
 #ifndef Zephyr_LoRa_HPP
 #define Zephyr_LoRa_HPP
 
-#include <zephyr/drivers/lora.h>
-#include <Os/Mutex.hpp>
+#include "Os/Mutex.hpp"
 #include "fprime-zephyr/Drv/LoRa/LoRaComponentAc.hpp"
+#include <zephyr/drivers/lora.h>
 
 namespace Zephyr {
 
