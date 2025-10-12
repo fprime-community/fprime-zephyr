@@ -6,7 +6,7 @@
 
 #include "fprime-zephyr/Drv/LoRa/LoRa.hpp"
 #include "zephyr-config/LoRaCfg.hpp"
-
+#include <Fw/Logger/Logger.hpp>
 namespace Zephyr {
 
 // Base configuration for the LoRa modem
@@ -43,7 +43,7 @@ LoRa::Status LoRa ::start(const struct device* lora_device) {
         return NOT_READY;
     }
 
-    LoRa::Status config_status = this->enableRx();
+    LoRa::Status config_status = this->enableRx(true);
     if (config_status != Status::SUCCESS) {
         this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
         return LoRa::Status::ERROR;
@@ -72,7 +72,7 @@ LoRa::Status LoRa ::enableTx() {
     return (status < 0) ? Status::ERROR : Status::SUCCESS;
 }
 
-LoRa::Status LoRa ::enableRx() {
+LoRa::Status LoRa ::enableRx(bool initial) {
     Fw::ParamValid isValid = Fw::ParamValid::INVALID;
     const LoRaDataRate data_rate = this->paramGet_DATA_RATE(isValid);
     FW_ASSERT(isValid != Fw::ParamValid::INVALID, static_cast<FwAssertArgType>(isValid));
@@ -83,6 +83,16 @@ LoRa::Status LoRa ::enableRx() {
     BASE_CONFIG.tx = false;
     BASE_CONFIG.datarate = static_cast<enum lora_datarate>(data_rate.e);
     BASE_CONFIG.coding_rate = static_cast<enum lora_coding_rate>(coding_rate.e);
+
+    // On the initial configuration log the config parameters
+    if (initial) {
+        Fw::Logger::log("[LoRa] Frequency: %" PRI_U32 "\n", BASE_CONFIG.frequency);
+        Fw::Logger::log("[LoRa] Bandwidth: %" PRI_U32 "\n", static_cast<U32>(BASE_CONFIG.bandwidth));
+        Fw::Logger::log("[LoRa] Data Rate (Spreading Factor): %" PRI_U8 "\n", static_cast<U8>(BASE_CONFIG.datarate));
+        Fw::Logger::log("[LoRa] Coding Rate: %" PRI_U8 "\n", static_cast<U8>(BASE_CONFIG.coding_rate));
+        Fw::Logger::log("[LoRa] Preamble Length: %" PRI_U16 "\n", BASE_CONFIG.preamble_len);
+        Fw::Logger::log("[LoRa] TX Power: %" PRI_I8 "\n", BASE_CONFIG.tx_power);
+    }
     int status = lora_config(this->m_lora_device, &BASE_CONFIG);
     if (status == 0) {
         status = lora_recv_async(this->m_lora_device, LoRa::receiveCallback, this);

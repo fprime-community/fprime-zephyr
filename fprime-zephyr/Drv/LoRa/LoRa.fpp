@@ -1,5 +1,5 @@
 module Zephyr {
-    enum LoRaDataRate {
+    enum LoRaDataRate : U8{
         SF_6 = 6
         SF_7 = 7
         SF_8 = 8
@@ -8,13 +8,13 @@ module Zephyr {
         SF_11 = 11
         SF_12 = 12
     }
-    enum LoRaCodingRate {
+    enum LoRaCodingRate : U8 {
         CR_4_5 = 1
         CR_4_6 = 2
         CR_4_7 = 3
         CR_4_8 = 4
     }
-    enum LoRaMode {
+    enum LoRaMode : U8 {
         Transmit,
         Receive
     }
