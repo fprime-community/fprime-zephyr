@@ -5,10 +5,8 @@
 #ifndef OS_ZEPHYR_RAWTIME_HPP
 #define OS_ZEPHYR_RAWTIME_HPP
 
-#include <zephyr/kernel.h>     
+#include <zephyr/kernel.h>
 #include <Os/RawTime.hpp>
-
-
 
 namespace Os {
 namespace Zephyr {
@@ -16,8 +14,8 @@ namespace RawTime {
 
 // Zephyr provides a POSIX-compatible struct timespec
 struct ZephyrRawTimeHandle : public RawTimeHandle {
-        U32 m_seconds;
-        U32 m_micros;
+    U32 m_seconds;
+    U32 m_micros;
 };
 
 //! \brief Zephyr implementation of Os::RawTime
@@ -26,7 +24,6 @@ struct ZephyrRawTimeHandle : public RawTimeHandle {
 //!
 class ZephyrRawTime : public RawTimeInterface {
   public:
-
     //! \brief constructor
     ZephyrRawTime() = default;
 
@@ -61,16 +58,18 @@ class ZephyrRawTime : public RawTimeInterface {
     //! \brief Serialize the contents of the RawTimeInterface object into a buffer.
     //!
     //! This function serializes the contents of the RawTimeInterface object into the provided
-    //! buffer. 
+    //! buffer.
     //!
     //! \note The serialization must fit within `FW_RAW_TIME_SERIALIZATION_MAX_SIZE` bytes. This value is
     //! defined in FpConfig.h. For example, Posix systems use a pair of U32 (sec, nanosec) and can therefore
-    //! serialize in 8 bytes. Should an OSAL implementation require more than this, the project must increase 
+    //! serialize in 8 bytes. Should an OSAL implementation require more than this, the project must increase
     //! that value in its config/ folder.
     //!
     //! \param buffer The buffer to serialize the contents into.
+    //! \param mode The endianness mode.
     //! \return Fw::SerializeStatus indicating the result of the serialization.
-    Fw::SerializeStatus serializeTo(Fw::SerializeBufferBase& buffer) const override;
+    Fw::SerializeStatus serializeTo(Fw::SerializeBufferBase& buffer,
+                                    Fw::Endianness mode = Fw::Endianness::BIG) const override;
 
     //! \brief Deserialize the contents of the RawTimeInterface object from a buffer.
     //!
@@ -79,13 +78,14 @@ class ZephyrRawTime : public RawTimeInterface {
     //!
     //! \note The serialization must fit within `FW_RAW_TIME_SERIALIZATION_MAX_SIZE` bytes. This value is
     //! defined in FpConfig.h. For example, Posix systems use a pair of U32 (sec, nanosec) and can therefore
-    //! serialize in 8 bytes. Should an OSAL implementation require more than this, the project must increase 
+    //! serialize in 8 bytes. Should an OSAL implementation require more than this, the project must increase
     //! that value in its config/ folder.
     //!
     //! \param buffer The buffer to deserialize the contents from.
+    //! \param mode The endianness mode.
     //! \return Fw::SerializeStatus indicating the result of the deserialization.
-    Fw::SerializeStatus deserializeFrom(Fw::SerializeBufferBase& buffer) override;
-
+    Fw::SerializeStatus deserializeFrom(Fw::SerializeBufferBase& buffer,
+                                        Fw::Endianness mode = Fw::Endianness::BIG) override;
 
   private:
     //! Handle for ZephyrRawTime
