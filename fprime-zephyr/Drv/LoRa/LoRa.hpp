@@ -40,7 +40,7 @@ class LoRa final : public LoRaComponentBase {
     Status enableTx();
 
     //! Enable rx
-    Status enableRx();
+    Status enableRx(bool initial=false);
 
   private:
     // ----------------------------------------------------------------------
