@@ -34,7 +34,7 @@ class LoRa final : public LoRaComponentBase {
     static void receiveCallback(const struct device* dev, U8* data, U16 size, I16 rssi, I8 snr, void* user_data);
 
     //! Configure LoRa radio the supplied device and start it
-    Status start(const struct device* lora_device);
+    Status start(const struct device* lora_device, const TransmitState& transmit_enabled);
 
     //! Enable tx
     Status enableTx();
@@ -72,6 +72,13 @@ class LoRa final : public LoRaComponentBase {
     void CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode,  //!< The opcode
                                     U32 cmdSeq,           //!< The command sequence number
                                     U16 seconds) override;
+    
+    //! Handler implementation for command TRANSMIT
+    //!
+    //! Start/stop transmission on the LoRa module
+    void TRANSMIT_cmdHandler(FwOpcodeType opCode,  //!< The opcode
+                             U32 cmdSeq,           //!< The command sequence number
+                             TransmitState enabled) override;
 
   private:
     U8 m_send_buffer[LoRa::MAX_PACKET_SIZE];  //!< Buffer for sending data (max LoRa packet size)
@@ -85,6 +92,7 @@ class LoRa final : public LoRaComponentBase {
 
     //! Pointer to the LoRa device
     const struct device* m_lora_device;
+    Zephyr::TransmitState m_transmit_enabled;  //!< Transmit enabled state
     Os::Mutex m_mutex;  //!< Mutex for thread safety
 };
 
