@@ -18,6 +18,11 @@ module Zephyr {
         Transmit,
         Receive
     }
+    enum TransmitState : U8 {
+        ENABLED,
+        DISABLED,
+        DISABLING,
+    }
 
     @ Wrapper for the Zephyr LoRa driver
     passive component LoRa {
@@ -35,6 +40,9 @@ module Zephyr {
 
         @ Continuous wave transmission
         sync command CONTINUOUS_WAVE(seconds: U16)
+
+        @ Start/stop transmission on the LoRa module
+        sync command TRANSMIT(enabled: TransmitState)
 
         @ Event to indicate configuration failure
         event ConfigurationFailed(mode: LoRaMode) severity warning high \
