@@ -41,7 +41,7 @@ DirectoryHandle* ZephyrDirectory::getHandle() {
 }
 
 ZephyrDirectory::Status ZephyrDirectory::open(const char* path, OpenMode mode) {
-    Status status = Status::OP_OK;
+    ZephyrDirectory::Status status = ZephyrDirectory::Status::OP_OK;
 
     return status;
 }
@@ -51,11 +51,13 @@ bool ZephyrDirectory::isOpen() {
 }
 
 ZephyrDirectory::Status ZephyrDirectory::rewind() {
-    Status status = Status::OP_OK;
+    ZephyrDirectory::Status status = ZephyrDirectory::Status::OP_OK;
     return status;
 }
 
 ZephyrDirectory::Status ZephyrDirectory::read(char* fileNameBuffer, FwSizeType bufSize) {
+    ZephyrDirectory::Status status = ZephyrDirectory::Status::OP_OK;
+    return status;
 }
 
 void ZephyrDirectory::close() {
