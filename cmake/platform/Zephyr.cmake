@@ -6,7 +6,6 @@
 link_libraries(zephyr_interface)
 
 # Use common linux setup
-set(FPRIME_USE_POSIX OFF)
 set(FPRIME_HAS_SOCKETS OFF)
 
 # Add unix specific configuration into the system
