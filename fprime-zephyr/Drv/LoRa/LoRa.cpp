@@ -32,11 +32,11 @@ void LoRa::receiveCallback(const struct device* dev, U8* data, U16 size, I16 rss
     lora_component->receive(data, size, rssi, snr);
 }
 
-LoRa ::LoRa(const char* const compName) : LoRaComponentBase(compName) {}
+LoRa ::LoRa(const char* const compName) : LoRaComponentBase(compName), m_transmit_enabled(TransmitState::DISABLED) {}
 
 LoRa ::~LoRa() {}
 
-LoRa::Status LoRa ::start(const struct device* lora_device) {
+LoRa::Status LoRa ::start(const struct device* lora_device, const TransmitState& transmit_enabled) {
     this->m_lora_device = lora_device;
     FW_ASSERT(lora_device != nullptr);
     if (!device_is_ready(lora_device)) {
@@ -48,8 +48,13 @@ LoRa::Status LoRa ::start(const struct device* lora_device) {
         this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
         return LoRa::Status::ERROR;
     }
-    Fw::Success status = Fw::Success::SUCCESS;
-    this->comStatusOut_out(0, status);
+    // On start, if the transmit is enabled then start the com status ping-pong transmit protocol
+    this->m_transmit_enabled = transmit_enabled;
+    if (transmit_enabled == TransmitState::ENABLED) {
+        Fw::Success status = Fw::Success::SUCCESS;
+        this->comStatusOut_out(0, status);
+    }
+
     return Status::SUCCESS;
 }
 
@@ -109,29 +114,33 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     FW_ASSERT(data.getSize() + sizeof(LoRaConfig::HEADER) <= LoRa::MAX_PACKET_SIZE, data.getSize());
     FW_ASSERT(this->m_lora_device != nullptr);
     FW_ASSERT(device_is_ready(this->m_lora_device));
-    Fw::Success returnStatus = Fw::Success::SUCCESS;
-    Status status = this->enableTx();
-    if (status == Status::SUCCESS) {
-        (void)::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
-        (void)::memcpy(this->m_send_buffer + sizeof(LoRaConfig::HEADER), data.getData(), data.getSize());
-        int send_status =
-            lora_send(this->m_lora_device, this->m_send_buffer, sizeof(LoRaConfig::HEADER) + data.getSize());
-        if (send_status != 0) {
-            this->log_WARNING_HI_SendFailed(static_cast<I32>(send_status));
-            returnStatus = Fw::Success::FAILURE;
+    Fw::Success returnStatus = Fw::Success::FAILURE;
+    if (this->m_transmit_enabled == TransmitState::ENABLED) {
+        Status status = this->enableTx();
+        if (status == Status::SUCCESS) {
+            (void)::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
+            (void)::memcpy(this->m_send_buffer + sizeof(LoRaConfig::HEADER), data.getData(), data.getSize());
+            int send_status =
+                lora_send(this->m_lora_device, this->m_send_buffer, sizeof(LoRaConfig::HEADER) + data.getSize());
+            if (send_status != 0) {
+                this->log_WARNING_HI_SendFailed(static_cast<I32>(send_status));
+                returnStatus = Fw::Success::FAILURE;
+            } else {
+                returnStatus = Fw::Success::SUCCESS;
+                this->log_WARNING_HI_ConfigurationFailed_ThrottleClear();
+                this->log_WARNING_HI_SendFailed_ThrottleClear();
+            }
         } else {
-            returnStatus = Fw::Success::SUCCESS;
-            this->log_WARNING_HI_ConfigurationFailed_ThrottleClear();
-            this->log_WARNING_HI_SendFailed_ThrottleClear();
+            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Transmit);
+            returnStatus = Fw::Success::FAILURE;
         }
-    } else {
-        this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Transmit);
-        returnStatus = Fw::Success::FAILURE;
-    }
-    // Enable RX mode after all TXes
-    status = this->enableRx();
-    if (status != Status::SUCCESS) {
-        this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+        // Enable RX mode after all TXes
+        status = this->enableRx();
+        if (status != Status::SUCCESS) {
+            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+        }
+    } else if (this->m_transmit_enabled == TransmitState::DISABLING) {
+        this->m_transmit_enabled = TransmitState::DISABLED;
     }
     this->dataReturnOut_out(0, data, context);
     this->comStatusOut_out(0, returnStatus);
@@ -169,5 +178,31 @@ void LoRa ::CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U16 seco
     this->cmdResponse_out(opCode, cmdSeq,
                           (status == Status::SUCCESS) ? Fw::CmdResponse::OK : Fw::CmdResponse::EXECUTION_ERROR);
 }
+
+void LoRa ::TRANSMIT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, TransmitState enabled) {
+    Os::ScopeLock lock(this->m_mutex);
+    // Want to enable
+    if (enabled == TransmitState::ENABLED) {
+        Fw::Logger::log("[LoRa] State: %" PRI_U8 "\n", this->m_transmit_enabled.e);
+        // Start the ping-pong protocol if we are disabled
+        if (this->m_transmit_enabled == TransmitState::DISABLED) {
+            Fw::Logger::log("[LoRa] Starting COM status ping-pong protocol\n");
+            Fw::Success comStatus = Fw::Success::SUCCESS;
+            this->comStatusOut_out(0, comStatus);
+        }
+        // Always go to enabled state
+        this->m_transmit_enabled = TransmitState::ENABLED;
+    }
+    // Want to disable
+    else {
+        Fw::Logger::log("[LoRa] State: %" PRI_U8 "\n", enabled.e);
+        // If not already diabled, then the ping-pong protocol should be stopped and thus we go to DISABLING state
+        if (this->m_transmit_enabled != TransmitState::DISABLED) {
+            this->m_transmit_enabled = TransmitState::DISABLING;
+        }
+    }
+    this->cmdResponse_out(opCode, cmdSeq, Fw::CmdResponse::OK);
+}
+
 
 }  // namespace Zephyr
