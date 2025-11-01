@@ -78,9 +78,11 @@ if (FPRIME_USE_POSIX)
     get_target_property(NEW_SOURCE_FILES Os_File_Posix_Implementation SOURCES)
     set(POSIX_FILE_CPP "${NEW_SOURCE_FILES}")
     list(FILTER NEW_SOURCE_FILES EXCLUDE REGEX ".*FileSystem.cpp$")
+    list(FILTER NEW_SOURCE_FILES EXCLUDE REGEX ".*Directory.cpp$")
     list(FILTER POSIX_FILE_CPP INCLUDE REGEX ".*/File.cpp$")
+    list(APPEND NEW_SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/FileSystem.cpp")
+    list(APPEND NEW_SOURCE_FILES "${CMAKE_CURRENT_LIST_DIR}/Directory.cpp")
 
-
-    set_target_properties(Os_File_Posix_Implementation PROPERTIES SOURCES "${NEW_SOURCE_FILES};${CMAKE_CURRENT_LIST_DIR}/FileSystem.cpp")
+    set_target_properties(Os_File_Posix_Implementation PROPERTIES SOURCES "${NEW_SOURCE_FILES}")
     target_compile_definitions(Os_File_Posix_Implementation PRIVATE FPRIME_SYNTHETIC_FALLOCATE=1)
 endif()
