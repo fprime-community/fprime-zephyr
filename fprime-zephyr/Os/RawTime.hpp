@@ -68,7 +68,7 @@ class ZephyrRawTime : public RawTimeInterface {
     //! \param buffer The buffer to serialize the contents into.
     //! \param mode The endianness mode.
     //! \return Fw::SerializeStatus indicating the result of the serialization.
-    Fw::SerializeStatus serializeTo(Fw::SerializeBufferBase& buffer,
+    Fw::SerializeStatus serializeTo(Fw::SerialBufferBase& buffer,
                                     Fw::Endianness mode = Fw::Endianness::BIG) const override;
 
     //! \brief Deserialize the contents of the RawTimeInterface object from a buffer.
@@ -84,7 +84,7 @@ class ZephyrRawTime : public RawTimeInterface {
     //! \param buffer The buffer to deserialize the contents from.
     //! \param mode The endianness mode.
     //! \return Fw::SerializeStatus indicating the result of the deserialization.
-    Fw::SerializeStatus deserializeFrom(Fw::SerializeBufferBase& buffer,
+    Fw::SerializeStatus deserializeFrom(Fw::SerialBufferBase& buffer,
                                         Fw::Endianness mode = Fw::Endianness::BIG) override;
 
   private:
