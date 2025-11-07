@@ -71,3 +71,16 @@ register_fprime_implementation(
   SOURCES
     "${CMAKE_CURRENT_LIST_DIR}/snprintk.cpp"
 )
+
+# Rewrite Os_File_Posix source with FileSystem.cpp
+if (FPRIME_USE_POSIX)
+    
+    get_target_property(NEW_SOURCE_FILES Os_File_Posix_Implementation SOURCES)
+    set(POSIX_FILE_CPP "${NEW_SOURCE_FILES}")
+    list(FILTER NEW_SOURCE_FILES EXCLUDE REGEX ".*FileSystem.cpp$")
+    list(FILTER POSIX_FILE_CPP INCLUDE REGEX ".*/File.cpp$")
+
+
+    set_target_properties(Os_File_Posix_Implementation PROPERTIES SOURCES "${NEW_SOURCE_FILES};${CMAKE_CURRENT_LIST_DIR}/FileSystem.cpp")
+    target_compile_definitions(Os_File_Posix_Implementation PRIVATE FPRIME_SYNTHETIC_FALLOCATE=1)
+endif()
