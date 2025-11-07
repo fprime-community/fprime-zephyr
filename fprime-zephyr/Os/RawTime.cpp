@@ -44,7 +44,7 @@ ZephyrRawTime::Status ZephyrRawTime::getTimeInterval(const Os::RawTime& other, F
     return Status::OP_OK;
 }
 
-Fw::SerializeStatus ZephyrRawTime::serializeTo(Fw::SerializeBufferBase& buffer, Fw::Endianness mode) const {
+Fw::SerializeStatus ZephyrRawTime::serializeTo(Fw::SerialBufferBase& buffer, Fw::Endianness mode) const {
     Fw::SerializeStatus status = buffer.serializeFrom(this->m_handle.m_seconds, mode);
     if (status != Fw::SerializeStatus::FW_SERIALIZE_OK) {
         return status;
@@ -52,7 +52,7 @@ Fw::SerializeStatus ZephyrRawTime::serializeTo(Fw::SerializeBufferBase& buffer, 
     return buffer.serializeFrom(this->m_handle.m_micros, mode);
 }
 
-Fw::SerializeStatus ZephyrRawTime::deserializeFrom(Fw::SerializeBufferBase& buffer, Fw::Endianness mode) {
+Fw::SerializeStatus ZephyrRawTime::deserializeFrom(Fw::SerialBufferBase& buffer, Fw::Endianness mode) {
     Fw::SerializeStatus status = buffer.deserializeTo(this->m_handle.m_seconds, mode);
     if (status != Fw::SerializeStatus::FW_SERIALIZE_OK) {
         return status;
