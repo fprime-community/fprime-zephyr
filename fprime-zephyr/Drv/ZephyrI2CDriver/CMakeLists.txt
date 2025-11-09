@@ -10,29 +10,10 @@
 #
 ####
 
-set(SOURCE_FILES
-  "${CMAKE_CURRENT_LIST_DIR}/ZephyrI2CDriver.fpp"
-  "${CMAKE_CURRENT_LIST_DIR}/ZephyrI2CDriver.cpp"
+register_fprime_module(
+  AUTOCODER_INPUTS
+    "${CMAKE_CURRENT_LIST_DIR}/ZephyrI2cDriver.fpp"
+  SOURCES
+    "${CMAKE_CURRENT_LIST_DIR}/ZephyrI2cDriver.cpp"
 )
 
-# Uncomment and add any modules that this component depends on, else
-# they might not be available when cmake tries to build this component.
-#
-# set(MOD_DEPS
-#   MyPackage_MyOtherModule
-# )
-
-register_fprime_module()
-
-
-### Unit Tests ###
-# set(UT_SOURCE_FILES
-#   "${CMAKE_CURRENT_LIST_DIR}/ZephyrI2CDriver.fpp"
-#   "${CMAKE_CURRENT_LIST_DIR}/test/ut/ZephyrI2CDriverTestMain.cpp"
-#   "${CMAKE_CURRENT_LIST_DIR}/test/ut/ZephyrI2CDriverTester.cpp"
-# )
-# set(UT_MOD_DEPS
-#   STest
-# )
-# set(UT_AUTO_HELPERS ON)
-# register_fprime_ut()

@@ -1,66 +1,34 @@
-# Drv::ZephyrI2CDriver
+# Drv::ZephyrI2cDriver
 
-I²C driver for the fprime-zephyr OSAL layer that bridges F´ components with Zephyr's I²C API.
+I2C driver for the fprime-zephyr OSAL layer that bridges F´ components with Zephyr's I2C API.
 
-## Usage Examples
-Add usage examples here
+ZephyrI2cDriver implements the F´ `Drv.I2c` interface.
 
-### Diagrams
-Add diagrams here
+## Usage
 
-### Typical Usage
-And the typical usage of the component here
+The `ZephyrI2cDriver` requires a [Zephyr I2C device structure](https://docs.zephyrproject.org/3.7.0/doxygen/html/structdevice.html) to be provided during initialization. This structure represents the I2C bus and target address. It can be obtained through Zephyr's device tree or by using the `device_get_binding` function. 
 
-## Class Diagram
-Add a class diagram here
+```c++
+// In Topology.cpp
+#include <zephyr/device.h>
 
-## Port Descriptions
-| Name | Description |
-|---|---|
-|---|---|
+static const struct device *i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
 
-## Component States
-Add component states in the chart below
-| Name | Description |
-|---|---|
-|---|---|
+...
 
-## Sequence Diagrams
-Add sequence diagrams here
+void configureTopology() {
+    Drv::I2cStatus status = i2cDriver.open(i2c_dev);
+    if (status != Drv::I2cStatus::I2C_OK) {
+        Fw::Logger::log("Failed to open I2C device\n");
+    } else {
+        Fw::Logger::log("I2C device opened successfully\n");
+    }
+    
+    ...
+}
+```
 
-## Parameters
-| Name | Description |
-|---|---|
-|---|---|
+## Links
 
-## Commands
-| Name | Description |
-|---|---|
-|---|---|
-
-## Events
-| Name | Description |
-|---|---|
-|---|---|
-
-## Telemetry
-| Name | Description |
-|---|---|
-|---|---|
-
-## Unit Tests
-Add unit test descriptions in the chart below
-| Name | Description | Output | Coverage |
-|---|---|---|---|
-|---|---|---|---|
-
-## Requirements
-Add requirements in the chart below
-| Name | Description | Validation |
-|---|---|---|
-|---|---|---|
-
-## Change Log
-| Date | Description |
-|---|---|
-|---| Initial Draft |
+* [Zephyr I2C Documentation](https://docs.zephyrproject.org/latest/hardware/peripherals/i2c.html)
+* [Zephyr I2C API Reference](https://docs.zephyrproject.org/latest/doxygen/html/group__i2c__interface.html)
