@@ -77,12 +77,31 @@ register_fprime_implementation(
 #
 # Note: this implementation uses the same class names as Os/Posix/File
 get_target_property(FPRIME_OS_SOURCE_DIR Os SOURCE_DIR)
+
+# First recreate the error module from Posix since it is needed by File. Do this only if FPRIME_USE_POSIX is off
+if (NOT FPRIME_USE_POSIX AND NOT TARGET Os_Posix_Shared)
+    register_fprime_module(
+        Os_Posix_Shared
+    SOURCES
+        "${FPRIME_OS_SOURCE_DIR}/Posix/error.cpp"
+    HEADERS
+        "${FPRIME_OS_SOURCE_DIR}/Posix/error.hpp"
+    DEPENDS
+        Fw_Time
+        Fw_Types
+    )
+endif()
+
+# Second create the File implementation
 register_fprime_implementation(
     Os_File_Zephyr_Posix
   IMPLEMENTS
     Os_File
   DEPENDS
     Fw_Types
+    Fw_Time
+    kernel
+    Os_Posix_Shared
   SOURCES
     "${FPRIME_OS_SOURCE_DIR}/Posix/File.cpp"
     "${FPRIME_OS_SOURCE_DIR}/Posix/DefaultFile.cpp"
