@@ -72,15 +72,40 @@ register_fprime_implementation(
     "${CMAKE_CURRENT_LIST_DIR}/snprintk.cpp"
 )
 
-# Rewrite Os_File_Posix source with FileSystem.cpp
-if (FPRIME_USE_POSIX)
-    
-    get_target_property(NEW_SOURCE_FILES Os_File_Posix_Implementation SOURCES)
-    set(POSIX_FILE_CPP "${NEW_SOURCE_FILES}")
-    list(FILTER NEW_SOURCE_FILES EXCLUDE REGEX ".*FileSystem.cpp$")
-    list(FILTER POSIX_FILE_CPP INCLUDE REGEX ".*/File.cpp$")
+# Create a new File implementation that uses the File.cpp from the fprime posix implementation but provides alternate
+# Directory and FileSystem implementations to work with Zephyr's subset of POSIX.
+#
+# Note: this implementation uses the same class names as Os/Posix/File
+get_target_property(FPRIME_OS_SOURCE_DIR Os SOURCE_DIR)
 
-
-    set_target_properties(Os_File_Posix_Implementation PROPERTIES SOURCES "${NEW_SOURCE_FILES};${CMAKE_CURRENT_LIST_DIR}/FileSystem.cpp")
-    target_compile_definitions(Os_File_Posix_Implementation PRIVATE FPRIME_SYNTHETIC_FALLOCATE=1)
+# First recreate the error module from Posix since it is needed by File. Do this only if FPRIME_USE_POSIX is off
+if (NOT FPRIME_USE_POSIX AND NOT TARGET Os_Posix_Shared)
+    register_fprime_module(
+        Os_Posix_Shared
+    SOURCES
+        "${FPRIME_OS_SOURCE_DIR}/Posix/error.cpp"
+    HEADERS
+        "${FPRIME_OS_SOURCE_DIR}/Posix/error.hpp"
+    DEPENDS
+        Fw_Time
+        Fw_Types
+    )
 endif()
+
+# Second create the File implementation
+register_fprime_implementation(
+    Os_File_Zephyr_Posix
+  IMPLEMENTS
+    Os_File
+  DEPENDS
+    Fw_Types
+    Fw_Time
+    kernel
+    Os_Posix_Shared
+  SOURCES
+    "${FPRIME_OS_SOURCE_DIR}/Posix/File.cpp"
+    "${FPRIME_OS_SOURCE_DIR}/Posix/DefaultFile.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/FileSystem.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/Directory.cpp"
+)
+target_compile_definitions(Os_File_Zephyr_Posix PRIVATE FPRIME_SYNTHETIC_FALLOCATE=1)

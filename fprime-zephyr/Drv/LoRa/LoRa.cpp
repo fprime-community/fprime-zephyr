@@ -61,9 +61,9 @@ LoRa::Status LoRa ::start(const struct device* lora_device, const TransmitState&
 LoRa::Status LoRa ::enableTx() {
     Fw::ParamValid isValid = Fw::ParamValid::INVALID;
     const LoRaDataRate data_rate = this->paramGet_DATA_RATE(isValid);
-    FW_ASSERT(isValid != Fw::ParamValid::VALID, static_cast<FwAssertArgType>(isValid));
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
     const LoRaCodingRate coding_rate = this->paramGet_CODING_RATE(isValid);
-    FW_ASSERT(isValid != Fw::ParamValid::VALID, static_cast<FwAssertArgType>(isValid));
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
 
     // Disable async receive while in TX mode
     int status = lora_recv_async(this->m_lora_device, nullptr, nullptr);
