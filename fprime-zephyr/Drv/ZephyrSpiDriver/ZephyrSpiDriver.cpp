@@ -60,11 +60,23 @@ void ZephyrSpiDriver ::SpiReadWrite_handler(FwIndexType portNum,
       .count = 1,
   };
 
-  int status = spi_transceive(this->m_dev, &spi_config, &write_buffer_set, &read_buffer_set); 
-  if(status <= 0){
-    printk("SPI read/write error\n");
+  int status = spi_transceive(this->m_dev, &spi_config, &write_buffer_set, &read_buffer_set);
+  if(status < 0){
+    switch (status) {
+      case -EINVAL: {
+        printk("SPI read/write error: EINVAL\n");
+        break;
+      }
+      case -ENOTSUP: {
+        printk("SPI read/write error: ENOTSUP\n");
+        break;
+      } default: {
+        printk("SPI read/write error: errno = %i\n", status);
+      }
+    }
+  } else {
+    printk("SPI read/write success\n");
   }
-  printk("SPI read/write success\n");
 }
 
 } // namespace Zephyr
