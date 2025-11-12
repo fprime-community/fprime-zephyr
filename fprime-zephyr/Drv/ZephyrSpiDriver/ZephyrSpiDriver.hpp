@@ -44,7 +44,7 @@ private:
                             Fw::Buffer &writeBuffer,
                             Fw::Buffer &readBuffer) override;
 
-  struct spi_config m_spiConfig; 
+  struct spi_config m_spiConfig;
   const struct device *m_dev;
 };
 
