@@ -49,7 +49,7 @@ namespace Task {
 
 
 #ifdef CONFIG_THREAD_NAME
-        k_thread_name_set(&this->m_handle.m_task_descriptor, this->arguments.m_name.toChar());
+        k_thread_name_set(&this->m_handle.m_task_descriptor, arguments.m_name.toChar());
 #endif
         k_thread_start(tid);
         return Os::Task::Status::OP_OK;
