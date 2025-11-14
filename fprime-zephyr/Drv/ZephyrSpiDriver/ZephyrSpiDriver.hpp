@@ -30,8 +30,8 @@ public:
   //! Destroy ZephyrSpiDriver object
   ~ZephyrSpiDriver();
 
-private:
   void configure(const struct device *device, spi_config spiConfig);
+private:
 
   // ----------------------------------------------------------------------
   // Handler implementations for typed input ports
@@ -44,7 +44,7 @@ private:
                             Fw::Buffer &writeBuffer,
                             Fw::Buffer &readBuffer) override;
 
-  struct spi_config m_spiConfig; 
+  struct spi_config m_spiConfig;
   const struct device *m_dev;
 };
 

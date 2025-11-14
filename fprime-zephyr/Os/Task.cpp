@@ -31,7 +31,7 @@ namespace Task {
 
     Os::Task::Status ZephyrTask::start(const Arguments& arguments) {
         size_t stack_size = static_cast<size_t>(arguments.m_stackSize);
-        
+
         k_thread_stack_t *stack = k_thread_stack_alloc(stack_size, 0);
         FwSizeType priority = arguments.m_priority;
 
@@ -49,7 +49,7 @@ namespace Task {
 
 
 #ifdef CONFIG_THREAD_NAME
-        k_thread_name_set(&this->m_handle.m_task_descriptor, this->arguments.m_name.toChar());
+        k_thread_name_set(&this->m_handle.m_task_descriptor, arguments.m_name.toChar());
 #endif
         k_thread_start(tid);
         return Os::Task::Status::OP_OK;
@@ -80,7 +80,7 @@ namespace Task {
 
     Os::Task::Status ZephyrTask::_delay(Fw::TimeInterval interval) {
         uint32_t delay_ms = interval.getSeconds() * 1000 + interval.getUSeconds() / 1000;
-        k_sleep(K_MSEC(delay_ms)); // Need better error checking 
+        k_sleep(K_MSEC(delay_ms)); // Need better error checking
         return Os::Task::Status::OP_OK;
     }
 
