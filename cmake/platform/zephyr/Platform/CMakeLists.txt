@@ -15,8 +15,7 @@ register_fprime_config(
         Os_RawTime_Zephyr
         Os_StringFormat_Zephyr_snprintk
         Os_Console_Zephyr
-        Os_File_Zephyr_Posix # Requires Zephyr POSIX layer, use Os_File_Stub otherwise
-
+        Os_File_Zephyr
         # Can remain stubs for now
         Os_Cpu_Stub
         Os_Memory_Stub
