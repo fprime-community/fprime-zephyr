@@ -74,8 +74,6 @@ void ZephyrSpiDriver ::SpiReadWrite_handler(FwIndexType portNum,
         printk("SPI read/write error: errno = %i\n", status);
       }
     }
-  } else {
-    printk("SPI read/write success\n");
   }
 }
 
