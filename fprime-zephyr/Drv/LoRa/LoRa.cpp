@@ -74,7 +74,7 @@ LoRa::Status LoRa ::enableTx() {
         BASE_CONFIG.tx = true;
         BASE_CONFIG.datarate = static_cast<enum lora_datarate>(data_rate.e);
         BASE_CONFIG.coding_rate = static_cast<enum lora_coding_rate>(coding_rate.e);
-        BASE_CONFIG.bandwidth = static_cast<enum lora_bandwidth>(bandwidth.e);
+        BASE_CONFIG.bandwidth = static_cast<enum lora_signal_bandwidth>(bandwidth.e);
 
         status = lora_config(this->m_lora_device, &BASE_CONFIG);
     }
@@ -94,7 +94,7 @@ LoRa::Status LoRa ::enableRx(bool initial) {
     BASE_CONFIG.tx = false;
     BASE_CONFIG.datarate = static_cast<enum lora_datarate>(data_rate.e);
     BASE_CONFIG.coding_rate = static_cast<enum lora_coding_rate>(coding_rate.e);
-    BASE_CONFIG.bandwidth = static_cast<enum lora_bandwidth>(bandwidth.e);
+    BASE_CONFIG.bandwidth = static_cast<enum lora_signal_bandwidth>(bandwidth.e);
 
     // On the initial configuration log the config parameters
     if (initial) {
