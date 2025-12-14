@@ -183,19 +183,18 @@ void LoRa ::TRANSMIT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, TransmitState e
     Os::ScopeLock lock(this->m_mutex);
     // Want to enable
     if (enabled == TransmitState::ENABLED) {
-        Fw::Logger::log("[LoRa] State: %" PRI_U8 "\n", this->m_transmit_enabled.e);
         // Start the ping-pong protocol if we are disabled
         if (this->m_transmit_enabled == TransmitState::DISABLED) {
-            Fw::Logger::log("[LoRa] Starting COM status ping-pong protocol\n");
+            // Must transition to ENABLED **BEFORE** calling comStatusOut
+            this->m_transmit_enabled = TransmitState::ENABLED;
             Fw::Success comStatus = Fw::Success::SUCCESS;
             this->comStatusOut_out(0, comStatus);
         }
-        // Always go to enabled state
+        // Set ENABLED for all other cases
         this->m_transmit_enabled = TransmitState::ENABLED;
     }
     // Want to disable
     else {
-        Fw::Logger::log("[LoRa] State: %" PRI_U8 "\n", enabled.e);
         // If not already diabled, then the ping-pong protocol should be stopped and thus we go to DISABLING state
         if (this->m_transmit_enabled != TransmitState::DISABLED) {
             this->m_transmit_enabled = TransmitState::DISABLING;
@@ -203,6 +202,4 @@ void LoRa ::TRANSMIT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, TransmitState e
     }
     this->cmdResponse_out(opCode, cmdSeq, Fw::CmdResponse::OK);
 }
-
-
 }  // namespace Zephyr
