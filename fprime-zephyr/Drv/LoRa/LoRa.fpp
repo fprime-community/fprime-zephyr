@@ -1,12 +1,12 @@
 module Zephyr {
     enum LoRaDataRate : U8{
-        SF_6 = 6
+        # EXCLUDED: DOES not work. SF_6 = 6
         SF_7 = 7
         SF_8 = 8
         SF_9 = 9
         SF_10 = 10
-        SF_11 = 11
-        SF_12 = 12
+        # EXCLUDED: KILLS radio SF_11 = 11
+        # EXCLUDED: KILLS radio SF_12 = 12
     }
     enum LoRaCodingRate : U8 {
         CR_4_5 = 1
