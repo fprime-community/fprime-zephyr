@@ -64,6 +64,8 @@ LoRa::Status LoRa ::enableTx() {
     FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
     const LoRaCodingRate coding_rate = this->paramGet_CODING_RATE(isValid);
     FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
+    const LoRaBandwidth bandwidth = this->paramGet_BANDWIDTH_TX(isValid);
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
 
     // Disable async receive while in TX mode
     int status = lora_recv_async(this->m_lora_device, nullptr, nullptr);
@@ -72,6 +74,8 @@ LoRa::Status LoRa ::enableTx() {
         BASE_CONFIG.tx = true;
         BASE_CONFIG.datarate = static_cast<enum lora_datarate>(data_rate.e);
         BASE_CONFIG.coding_rate = static_cast<enum lora_coding_rate>(coding_rate.e);
+        BASE_CONFIG.bandwidth = static_cast<enum lora_bandwidth>(bandwidth.e);
+
         status = lora_config(this->m_lora_device, &BASE_CONFIG);
     }
     return (status < 0) ? Status::ERROR : Status::SUCCESS;
@@ -80,14 +84,17 @@ LoRa::Status LoRa ::enableTx() {
 LoRa::Status LoRa ::enableRx(bool initial) {
     Fw::ParamValid isValid = Fw::ParamValid::INVALID;
     const LoRaDataRate data_rate = this->paramGet_DATA_RATE(isValid);
-    FW_ASSERT(isValid != Fw::ParamValid::INVALID, static_cast<FwAssertArgType>(isValid));
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
     const LoRaCodingRate coding_rate = this->paramGet_CODING_RATE(isValid);
-    FW_ASSERT(isValid != Fw::ParamValid::INVALID, static_cast<FwAssertArgType>(isValid));
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
+    const LoRaBandwidth bandwidth = this->paramGet_BANDWIDTH_RX(isValid);
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
 
     // Update BASE_CONFIG in-place to save on stack space
     BASE_CONFIG.tx = false;
     BASE_CONFIG.datarate = static_cast<enum lora_datarate>(data_rate.e);
     BASE_CONFIG.coding_rate = static_cast<enum lora_coding_rate>(coding_rate.e);
+    BASE_CONFIG.bandwidth = static_cast<enum lora_bandwidth>(bandwidth.e);
 
     // On the initial configuration log the config parameters
     if (initial) {

@@ -14,6 +14,11 @@ module Zephyr {
         CR_4_7 = 3
         CR_4_8 = 4
     }
+    enum LoRaBandwidth : U8 {
+        BW_125_KHZ = 0
+        BW_250_KHZ = 1
+        BW_500_KHZ = 2
+    }
     enum LoRaMode : U8 {
         Transmit,
         Receive
@@ -37,6 +42,12 @@ module Zephyr {
 
         @ Data rate / spreading factor
         param DATA_RATE: LoRaDataRate default LoRaDataRate.SF_8
+
+        @ Bandwidth for transmission
+        param BANDWIDTH_TX: LoRaBandwidth default LoRaBandwidth.BW_125_KHZ
+
+        @ Bandwidth for reception
+        param BANDWIDTH_RX: LoRaBandwidth default LoRaBandwidth.BW_125_KHZ
 
         @ Continuous wave transmission
         sync command CONTINUOUS_WAVE(seconds: U16)
