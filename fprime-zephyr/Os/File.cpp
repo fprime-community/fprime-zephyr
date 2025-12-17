@@ -91,7 +91,6 @@ ZephyrFile::Status ZephyrFile::size(FwSizeType& size_result) {
     Status status = this->position(current_position);
     size_result = 0;
     if (Os::File::Status::OP_OK == status) {
-        off_t end_of_file;
         // Must be a coding error if current_position is larger than off_t max in Zephyr File
         FW_ASSERT(current_position <= OFF_T_MAX_LIMIT);
         // Seek to the end of the file to determine size
@@ -99,11 +98,17 @@ ZephyrFile::Status ZephyrFile::size(FwSizeType& size_result) {
         if (return_code < 0) {
             //TODO:
             status = Os::File::Status::OTHER_ERROR;
+        } else {
+            off_t end_of_file = fs_tell(&this->m_handle.m_file);
+            if (end_of_file < 0) {
+                status = Os::File::Status::OTHER_ERROR;
+            } else {
+                size_result = static_cast<FwSizeType>(end_of_file);
+                status = Os::File::Status::OP_OK;
+            }
         }
-        end_of_file = fs_tell(&this->m_handle.m_file);
         // Return to original position
         (void)fs_seek(&this->m_handle.m_file, static_cast<off_t>(current_position), FS_SEEK_SET);
-        size_result = static_cast<FwSizeType>(end_of_file);
     }
     return status;
 }
@@ -124,44 +129,22 @@ ZephyrFile::Status ZephyrFile::position(FwSizeType& position_result) {
 ZephyrFile::Status ZephyrFile::preallocate(FwSizeType offset, FwSizeType length) {
     ZephyrFile::Status status = Os::File::Status::NOT_SUPPORTED;
     // Check for larger size than Zephyr supports
-    if ((length > OFF_T_MAX_LIMIT) || (offset > OFF_T_MAX_LIMIT) ||
-        (std::numeric_limits<off_t>::max() - length) < offset) {
+    const off_t offset_off_t = static_cast<off_t>(offset);
+    const off_t length_off_t = static_cast<off_t>(length);
+    if ((offset_off_t < 0) || (length_off_t < 0) ||
+        (offset > OFF_T_MAX_LIMIT) || (length > OFF_T_MAX_LIMIT) ||
+        (std::numeric_limits<off_t>::max() - length_off_t) < offset_off_t) {
         status = Os::File::Status::BAD_SIZE;
     }
-    // When the operation is not supported or Zephyr-API is not sufficient, fallback to a slower algorithm
-    if (Os::File::Status::NOT_SUPPORTED == status) {
-        // Calculate size
-        FwSizeType file_size = 0;
-        status = this->size(file_size);
-        if (Os::File::Status::OP_OK == status) {
-            // Calculate current position
-            FwSizeType file_position = 0;
-            status = this->position(file_position);
-            // Check for overflow in seek calls
-            if (file_position > static_cast<FwSizeType>(std::numeric_limits<FwSignedSizeType>::max()) ||
-                file_size > static_cast<FwSizeType>(std::numeric_limits<FwSignedSizeType>::max())) {
-                status = Os::File::Status::BAD_SIZE;
-            }
-            // Only allocate when the file is smaller than the allocation
-            else if ((Os::File::Status::OP_OK == status) && (file_size < (offset + length))) {
-                const FwSizeType write_length = (offset + length) - file_size;
-                status = this->seek(static_cast<FwSignedSizeType>(file_size), ZephyrFile::SeekType::ABSOLUTE);
-                if (Os::File::Status::OP_OK == status) {
-                    // Fill in zeros past size of file to ensure compatibility with fallocate
-                    for (FwSizeType i = 0; i < write_length; i++) {
-                        FwSizeType write_size = 1;
-                        status =
-                            this->write(reinterpret_cast<const U8*>("\0"), write_size, ZephyrFile::WaitType::NO_WAIT);
-                        if (Status::OP_OK != status || write_size != 1) {
-                            break;
-                        }
-                    }
-                    // Return to original position
-                    if (Os::File::Status::OP_OK == status) {
-                        status =
-                            this->seek(static_cast<FwSignedSizeType>(file_position), ZephyrFile::SeekType::ABSOLUTE);
-                    }
-                }
+    else {
+        const off_t final = offset_off_t + length_off_t;
+        FwSizeType currentSize = 0;
+        status = this->size(currentSize);
+        // Zephyr truncate will also zero-fill
+        if ((status == OP_OK) && (currentSize < std::numeric_limits<off_t>::max()) && (static_cast<off_t>(currentSize) < final)) { 
+            int return_code = fs_truncate(&this->m_handle.m_file, final);
+            if (return_code < 0) {
+                status = ZephyrFile::Status::OTHER_ERROR;
             }
         }
     }
@@ -170,17 +153,26 @@ ZephyrFile::Status ZephyrFile::preallocate(FwSizeType offset, FwSizeType length)
 
 ZephyrFile::Status ZephyrFile::seek(FwSignedSizeType offset, ZephyrFile::SeekType seekType) {
     Status status = OP_OK;
-    if (offset > std::numeric_limits<off_t>::max()) {
+    FW_ASSERT((seekType == SeekType::RELATIVE) || (offset >= 0));
+    if ((offset > std::numeric_limits<off_t>::max()) || (offset < std::numeric_limits<off_t>::min())) {
         status = BAD_SIZE;
     } else {
-        int return_code = fs_seek(&this->m_handle.m_file, static_cast<off_t>(offset),
-                (seekType == SeekType::ABSOLUTE) ? FS_SEEK_SET : FS_SEEK_CUR);
-        off_t actual = fs_tell(&this->m_handle.m_file);
-        if (return_code < 0 ) {
-            // TODO: error
-            status = OTHER_ERROR;
-        } else if ((seekType == SeekType::ABSOLUTE) && (actual != offset)) {
-            status = Os::File::Status::OTHER_ERROR;
+        // Determine the base position for preallocation
+        FwSizeType basePosition = 0;
+        if (seekType == SeekType::RELATIVE) {
+            status = this->position(basePosition);
+        }
+        // Preallocate if seeking beyond current size (preallocate is safe to call even if not needed)
+        if ((status == OP_OK) && (offset > 0)) {
+            status = this->preallocate(basePosition, static_cast<FwSizeType>(offset));
+        }
+        // Perform the seek as long as prior operations were successful
+        if (status == OP_OK) {
+            int return_code = fs_seek(&this->m_handle.m_file, static_cast<off_t>(offset),
+                (SeekType::ABSOLUTE == seekType) ? FS_SEEK_SET : FS_SEEK_CUR);
+            if (return_code < 0) {
+                status = Os::File::Status::OTHER_ERROR;
+            }
         }
     }
     return status;
