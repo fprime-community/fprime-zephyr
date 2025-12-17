@@ -71,6 +71,9 @@ class ZephyrFile : public FileInterface {
     //! \brief get size of currently open file
     //!
     //! Get the size of the currently open file and fill the size parameter. Return status of the operation.
+    //!
+    //! \warning this function is not thread safe with other file operations (read, write, seek, etc).
+    //!
     //! \param size: output parameter for size.
     //! \return OP_OK on success otherwise error status
     //!
@@ -172,7 +175,7 @@ class ZephyrFile : public FileInterface {
     ZephyrFileHandle m_handle;
 };
 }  // namespace File
-}  // namespace Posix
+}  // namespace Zephyr
 }  // namespace Os
 
 #endif  // OS_POSIX_FILE_HPP
