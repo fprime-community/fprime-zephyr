@@ -33,6 +33,11 @@ void ZephyrSpiDriver::configure(const struct device *device, spi_config spiConfi
   this->m_spiConfig = spiConfig;
 
 }
+Drv::SpiStatus ZephyrSpiDriver ::SpiWriteRead_handler(FwIndexType portNum,
+                                            Fw::Buffer &writeBuffer,
+                                            Fw::Buffer &readBuffer) {
+                                              return Drv::SpiStatus::SPI_OK;
+                                            }
 
 void ZephyrSpiDriver ::SpiReadWrite_handler(FwIndexType portNum,
                                             Fw::Buffer &writeBuffer,

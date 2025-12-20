@@ -40,6 +40,9 @@ private:
   //! Handler implementation for SpiReadWrite
   //!
   //! Port to perform a synchronous read/write operation over the SPI bus
+  Drv::SpiStatus SpiWriteRead_handler(FwIndexType portNum, //!< The port number
+                            Fw::Buffer &writeBuffer,
+                            Fw::Buffer &readBuffer) override;
   void SpiReadWrite_handler(FwIndexType portNum, //!< The port number
                             Fw::Buffer &writeBuffer,
                             Fw::Buffer &readBuffer) override;
