@@ -67,6 +67,12 @@ module Zephyr {
         event AllocationFailed(allocation_size: FwSizeType) severity warning high \
             format "Failed to allocate buffer of: {} bytes" throttle 2
 
+        @ Bytes received
+        telemetry BytesReceived: FwSizeType update on change
+
+        @ Bytes received
+        telemetry BytesSent: FwSizeType update on change
+
         @ Last received RSSI
         telemetry LastRssi: I16 update on change
 

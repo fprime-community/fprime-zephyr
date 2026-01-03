@@ -133,6 +133,8 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
                 this->log_WARNING_HI_SendFailed(static_cast<I32>(send_status));
                 returnStatus = Fw::Success::FAILURE;
             } else {
+                this->m_bytes_sent += data.getSize();
+                this->tlmWrite_BytesSent(this->m_bytes_sent);
                 returnStatus = Fw::Success::SUCCESS;
                 this->log_WARNING_HI_ConfigurationFailed_ThrottleClear();
                 this->log_WARNING_HI_SendFailed_ThrottleClear();
@@ -164,6 +166,8 @@ void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
     if (buffer.isValid()) {
         (void)::memcpy(buffer.getData(), data + sizeof(LoRaConfig::HEADER), payload_size);
         ComCfg::FrameContext frameContext;
+        this->m_bytes_received += payload_size;
+        this->tlmWrite_BytesReceived(this->m_bytes_received);
         this->dataOut_out(0, buffer, frameContext);
     } else {
         this->log_WARNING_HI_AllocationFailed(payload_size);

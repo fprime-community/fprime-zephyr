@@ -94,6 +94,9 @@ class LoRa final : public LoRaComponentBase {
     const struct device* m_lora_device;
     Zephyr::TransmitState m_transmit_enabled;  //!< Transmit enabled state
     Os::Mutex m_mutex;  //!< Mutex for thread safety
+
+    FwSizeType m_bytes_sent = 0;     //!< Total bytes sent telemetry
+    FwSizeType m_bytes_received = 0; //!< Total bytes received telemetry
 };
 
 }  // namespace Zephyr
