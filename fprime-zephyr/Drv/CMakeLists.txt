@@ -1,0 +1,6 @@
+add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/LoRa")
+add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/ZephyrUartDriver")
+add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/ZephyrGpioDriver")
+add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/ZephyrRateDriver")
+add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/ZephyrI2cDriver")
+add_fprime_subdirectory("${CMAKE_CURRENT_LIST_DIR}/ZephyrSpiDriver")
