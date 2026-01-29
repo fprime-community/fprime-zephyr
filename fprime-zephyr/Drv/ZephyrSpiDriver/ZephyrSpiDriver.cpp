@@ -33,12 +33,18 @@ void ZephyrSpiDriver::configure(const struct device *device, spi_config spiConfi
   this->m_spiConfig = spiConfig;
 
 }
-
 void ZephyrSpiDriver ::SpiReadWrite_handler(FwIndexType portNum,
                                             Fw::Buffer &writeBuffer,
                                             Fw::Buffer &readBuffer) {
+    // Call status-variant and discard status
+    (void) this->SpiWriteRead_handler(portNum, writeBuffer, readBuffer);
+}
+
+Drv::SpiStatus ZephyrSpiDriver ::SpiWriteRead_handler(FwIndexType portNum,
+                                            Fw::Buffer &writeBuffer,
+                                            Fw::Buffer &readBuffer) {
   if (!device_is_ready(this->m_dev)) {
-    return;
+    return Drv::SpiStatus::SPI_OPEN_ERR;
   }
 
   struct spi_config spi_config = m_spiConfig;
@@ -59,22 +65,24 @@ void ZephyrSpiDriver ::SpiReadWrite_handler(FwIndexType portNum,
       .buffers = read_buffers,
       .count = 1,
   };
-
+  Drv::SpiStatus returnStatus = Drv::SpiStatus::SPI_OK; 
   int status = spi_transceive(this->m_dev, &spi_config, &write_buffer_set, &read_buffer_set);
   if(status < 0){
     switch (status) {
       case -EINVAL: {
-        printk("SPI read/write error: EINVAL\n");
+        returnStatus = Drv::SpiStatus::SPI_MISMATCH_ERR;
         break;
       }
       case -ENOTSUP: {
-        printk("SPI read/write error: ENOTSUP\n");
+        returnStatus = Drv::SpiStatus::SPI_OPEN_ERR;
         break;
       } default: {
-        printk("SPI read/write error: errno = %i\n", status);
+        returnStatus = Drv::SpiStatus::SPI_OTHER_ERR;
+        break;
       }
     }
   }
+  return returnStatus;
 }
 
 } // namespace Zephyr

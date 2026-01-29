@@ -94,7 +94,7 @@ endif()
 
 # Second create the File implementation
 register_fprime_implementation(
-    Os_File_Zephyr_Posix
+    Os_File_Zephyr
   IMPLEMENTS
     Os_File
   DEPENDS
@@ -103,9 +103,8 @@ register_fprime_implementation(
     kernel
     Os_Posix_Shared
   SOURCES
-    "${FPRIME_OS_SOURCE_DIR}/Posix/File.cpp"
-    "${FPRIME_OS_SOURCE_DIR}/Posix/DefaultFile.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/File.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/FileSystem.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/Directory.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/DefaultFile.cpp"
 )
-target_compile_definitions(Os_File_Zephyr_Posix PRIVATE FPRIME_SYNTHETIC_FALLOCATE=1)
