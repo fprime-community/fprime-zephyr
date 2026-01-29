@@ -178,4 +178,4 @@ class ZephyrFile : public FileInterface {
 }  // namespace Zephyr
 }  // namespace Os
 
-#endif  // OS_POSIX_FILE_HPP
+#endif  // OS_ZEPHYR_FILE_HPP
