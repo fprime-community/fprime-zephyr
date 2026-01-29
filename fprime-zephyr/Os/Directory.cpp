@@ -1,35 +1,31 @@
 // ======================================================================
-// \title Os/Posix/Directory.cpp
-// \brief Posix implementation for Os::Directory
+// \title fprime-zephyr/Os/Directory.cpp
+// \brief Zephyr implementation for Os::Directory
 // ======================================================================
-#include <sys/stat.h>
-#include <cerrno>
-#include <cstring>
-
 #include <Fw/Types/Assert.hpp>
 #include <Fw/Types/StringUtils.hpp>
-#include <Os/Posix/Directory.hpp>
+#include <fprime-zephyr/Os/Directory.hpp>
 #include <Os/Posix/error.hpp>
-#include <sys/types.h>
-#include <dirent.h>
+#include <zephyr/fs/fs.h>
 
 namespace Os {
-namespace Posix {
+namespace Zephyr {
 namespace Directory {
 
-PosixDirectory::PosixDirectory() : Os::DirectoryInterface(), m_handle() {}
+ZephyrDirectory::ZephyrDirectory() : Os::DirectoryInterface(), m_handle() {}
 
-DirectoryHandle* PosixDirectory::getHandle() {
+DirectoryHandle* ZephyrDirectory::getHandle() {
     return &this->m_handle;
 }
 
-PosixDirectory::Status PosixDirectory::open(const char* path, OpenMode mode) {
+ZephyrDirectory::Status ZephyrDirectory::open(const char* path, OpenMode mode) {
+    int errno_status = 0;
     Status status = Status::OP_OK;
 
     // If one of the CREATE mode, attempt to create the directory
     if (mode == OpenMode::CREATE_EXCLUSIVE || mode == OpenMode::CREATE_IF_MISSING) {
-        if (::mkdir(path, S_IRWXU) == -1) {
-            status = errno_to_directory_status(errno);
+        if ((errno_status = ::fs_mkdir(path)) != 0) {
+            status = Os::Posix::errno_to_directory_status(-1 * errno_status);
             // If error is not ALREADY_EXISTS, return the error
             // If any error and mode CREATE_EXCLUSIVE, return the error
             // Else, we keep going with OP_OK
@@ -40,61 +36,40 @@ PosixDirectory::Status PosixDirectory::open(const char* path, OpenMode mode) {
             }
         }
     }
-
-    DIR* dir = ::opendir(path);
-
-    if (dir == nullptr) {
-        status = errno_to_directory_status(errno);
+    // Now attempt to open the directory
+    errno_status = ::fs_opendir(&this->m_handle.m_directory_descriptor, path);
+    if (errno_status != 0) {
+        status = Os::Posix::errno_to_directory_status(-1 * errno_status);
     }
-
-    this->m_handle.m_dir_descriptor = dir;
     return status;
 }
 
-PosixDirectory::Status PosixDirectory::rewind() {
-    return PosixDirectory::Status::NOT_SUPPORTED;
+ZephyrDirectory::Status ZephyrDirectory::rewind() {
+    return ZephyrDirectory::Status::NOT_SUPPORTED;
 }
 
-PosixDirectory::Status PosixDirectory::read(char* fileNameBuffer, FwSizeType bufSize) {
+ZephyrDirectory::Status ZephyrDirectory::read(char* fileNameBuffer, FwSizeType bufSize) {
     FW_ASSERT(fileNameBuffer);
-
+    int errno_status = 0;
     Status status = Status::OP_OK;
 
-    // Set errno to 0 so we know why we exited readdir
-    // This is recommended by the manual pages (man 3 readdir)
-    errno = 0;
 
-    struct dirent* direntData = nullptr;
-    while ((direntData = ::readdir(this->m_handle.m_dir_descriptor)) != nullptr) {
-        // Skip . and .. directory entries
-        if ((direntData->d_name[0] == '.' and direntData->d_name[1] == '\0') or
-            (direntData->d_name[0] == '.' and direntData->d_name[1] == '.' and direntData->d_name[2] == '\0')) {
-            continue;
-        } else {
-            (void)Fw::StringUtils::string_copy(fileNameBuffer, direntData->d_name, bufSize);
-            break;
-        }
-    }
-    if (direntData == nullptr) {
-        // loop ended because readdir failed, did it error or did we run out of files?
-        if (errno != 0) {
-            // Only error from readdir is EBADF
-            status = Status::BAD_DESCRIPTOR;
-        } else {
-            status = Status::NO_MORE_FILES;
-        }
+    struct fs_dirent direntData;
+    errno_status = fs_readdir(&this->m_handle.m_directory_descriptor, &direntData);
+    if (errno_status != 0) {
+        status = Os::Posix::errno_to_directory_status(-1 * errno_status);
+    } else if (direntData.name[0] == 0) {
+        status = Status::NO_MORE_FILES;
+    } else {
+        (void)Fw::StringUtils::string_copy(fileNameBuffer, direntData.name, bufSize);
     }
     return status;
 }
 
-void PosixDirectory::close() {
-    // ::closedir errors if dir descriptor is nullptr
-    if (this->m_handle.m_dir_descriptor != nullptr) {
-        (void)::closedir(this->m_handle.m_dir_descriptor);
-    }
-    this->m_handle.m_dir_descriptor = nullptr;
+void ZephyrDirectory::close() {
+    (void) fs_closedir(&this->m_handle.m_directory_descriptor);
 }
 
 }  // namespace Directory
-}  // namespace Posix
+}  // namespace Zephyr
 }  // namespace Os
