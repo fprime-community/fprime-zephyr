@@ -66,7 +66,7 @@ This step will install Zephyr, its modules, and the necessary Python tooling usi
 ```
 cd project-folder
 west update
-west packages pip install
+west packages pip --install
 west sdk install
 ```
 
@@ -102,3 +102,12 @@ register_fprime_zephyr_deployment(
 
 > [!TIP]
 > This will add `Main.cpp` to the Zephyr `app` target source list and sets up the topology module as a dependency.
+
+## Build
+
+In order to build with F Prime Zephyr, users must specify the `BOARD` environment variable (used by Zephyr) and the `zephyr` toolchain used by F Prime.
+
+```bash
+fprime-util generate -DBOARD=rpi_pico2/rp2350a/m33 zephyr
+fprime-util build zephyr
+```
