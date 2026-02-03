@@ -1,4 +1,4 @@
-# Fprime Zephyr Integration
+# Fprime Zephyr Support Package
 
 This package integrates F Prime and Zephyr RTOS allowing F Prime applications to run on the Zephyr RTOS! This document will walk through how to construct an F Prime deployment that works with this package.
 
@@ -12,14 +12,14 @@ Add this module as a submodule to your project (typically in `lib/fprime-zephyr`
 library_locations: ./lib/fprime-zephyr: ...
 ```
 
-Finally, users are encouraged to install the `west` Python package. This is used by Zephyr to fetch support modules, and much more!
+Finally, you should install the `west` Python package in your virtual environment. This is used by Zephyr to fetch support modules, and much more!
 
 ```bash
 pip install west
 ```
 
 > [!TIP]
-> Remember to source your project's virtual environment.
+> Remember to source your project's virtual environment before running the above command.
 
 ## Recommended Project Structure and Required Files
 
@@ -45,11 +45,14 @@ project-folder/
 └── boards/                  # OPTIONAL: custom board definitions and overlays
 ```
 
-The initial `fprime-bootstrap` and `git submodule add` steps to include this directory in a new project will create most of this structure. Users must create the following files. `fprime-zephyr` provides initial samples for each of these files
+The initial `fprime-bootstrap` and `git submodule add` steps to include this directory in a new project will create most of this structure. Users must create the following files.
 
 1. [`proj.conf`](./sample-config/proj.conf): contains the Zephyr KConfig options for the project
 2. [`west.yml`](./sample-config/west.yml): configuration for the extra modules used by Zephyr
 3. [`.west/config`](./sample-config/_dot_west/config): `west` tool configuration setup to work with the above recommended structure
+
+> [!TIP]
+> `fprime-zephyr` provides initial samples for each of these files as linked above.
 
 > [!CAUTION]
 > Make sure to put the sample in a hidden `.west` directory, as `west` requires this for its configuration.
