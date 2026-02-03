@@ -50,4 +50,31 @@ The initial `fprime-bootstrap` and `git submodule add` steps to include this dir
 1. [`proj.conf`](./sample-config/proj.conf): contains the Zephyr KConfig options for the project
 2. [`west.yml`](./sample-config/west.yml): configuration for the extra modules used by Zephyr
 3. [`.west/config`](./sample-config/.west/config): `west` tool configuration setup to work with the above recommended structure
-4. (Optional)[`boards/<overlay>.overlay](./sample-config/boards/rpi_pico2_rp2350a_m33.overlay): Board specific overlay files for configuring the Zephyr Device Tree
+4. (Optional)[`boards/<overlay>.overlay`](./sample-config/boards/rpi_pico2_rp2350a_m33.overlay): Board specific overlay files for configuring the Zephyr Device Tree
+
+> [!CAUTION]
+> The overlay provided is specific to the RPI Pico 2's M33 processor. Projects should configure their overlay files specifically to their board and usecase. See: [Zephyr Device Trees](https://docs.zephyrproject.org/latest/build/dts/index.html) for the whole story.
+
+## Installing Zephyr
+
+This step will install Zephyr, its modules, and the necessary Python tooling using your `west.yml` as the intial configuration. If you followed the recommended structure, installing Zephyr should be as easy as:
+
+```
+cd project-folder
+west update
+west packages pip install
+west sdk install
+```
+
+> [!TIP]
+> These commands will take quite some time to run.
+
+TODO:
+1. CMake integration
+2. CMake Deployment integration
+3. Exclude Zephyr/Modules from indexing
+4. Add sample files
+
+
+
+
