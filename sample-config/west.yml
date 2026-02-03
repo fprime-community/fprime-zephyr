@@ -1,0 +1,67 @@
+# West manifest for PROVES Core - Optimized for RP2040/RP2350 only
+# This minimal manifest significantly reduces the download and setup time
+# by only including modules required for Raspberry Pi RP2040/RP2350 builds
+
+manifest:
+  defaults:
+    remote: upstream
+
+  remotes:
+    - name: upstream
+      url-base: https://github.com/zephyrproject-rtos
+
+  # Import filter to exclude optional groups
+  group-filter: [-babblesim, -optional]
+
+  projects:
+    # Zephyr RTOS core
+    - name: zephyr
+      repo-path: zephyr
+      revision: v4.3.0
+      path: lib/zephyr-workspace/zephyr
+      west-commands: scripts/west-commands.yml
+      import:
+        # Import specific submanifests only (instead of all submanifests)
+        name-allowlist:
+          - cmsis      # ARM CMSIS support (required for Cortex-M)
+          - cmsis_6    # ARM CMSIS 6 support (required for RPI)
+          - hal_rpi_pico  # Raspberry Pi Pico HAL (REQUIRED for RP2040/RP2350)
+          - picolibc   # C library
+          - hal_nxp    # Required for Teensy
+
+    - name: loramac-node
+      revision: fb00b383072518c918e2258b0916c996f2d4eebe
+      path: lib/zephyr-workspace/modules/lib/loramac-node
+
+    # Core modules required for RP2040/RP2350
+    - name: cmsis
+      revision: 512cc7e895e8491696b61f7ba8066b4a182569b8
+      path: lib/zephyr-workspace/modules/hal/cmsis
+      groups:
+        - hal
+
+    - name: cmsis_6
+      repo-path: CMSIS_6
+      revision: 06d952b6713a2ca41c9224a62075e4059402a151
+      path: lib/zephyr-workspace/modules/hal/cmsis_6
+      groups:
+        - hal
+
+    - name: hal_rpi_pico
+      path: lib/zephyr-workspace/modules/hal/rpi_pico
+      revision: 09e957522da60581cf7958b31f8e625d969c69a5
+      groups:
+        - hal
+
+    - name: picolibc
+      path: lib/zephyr-workspace/modules/lib/picolibc
+      revision: 560946f26db075c296beea5b39d99e6de43c9010
+
+    - name: hal_nxp
+      path: lib/zephyr-workspace/modules/hal/nxp
+      revision: 5ed89d62447f9700520cfc7c80414a60739e7d9f
+      groups:
+        - hal
+
+  self:
+    path: .
