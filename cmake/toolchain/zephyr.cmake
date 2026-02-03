@@ -83,3 +83,8 @@ function(register_fprime_zephyr_deployment)
     include(fprime-util)
     fprime_util_metadata_add_build_target("${BUILD_TARGET_NAME}")
 endfunction()
+
+# Patch in std-atomic implementations
+if (BOARD STREQUAL "rpi_pico" OR FPRIME_ZEPHYR_USE_STD_ATOMIC_FIX)
+    include_directories(BEFORE "${CMAKE_CURRENT_LIST_DIR}/../../fprime-zephyr/Os/StdAtomic")
+endif()

@@ -49,11 +49,12 @@ The initial `fprime-bootstrap` and `git submodule add` steps to include this dir
 
 1. [`proj.conf`](./sample-config/proj.conf): contains the Zephyr KConfig options for the project
 2. [`west.yml`](./sample-config/west.yml): configuration for the extra modules used by Zephyr
-3. [`.west/config`](./sample-config/.west/config): `west` tool configuration setup to work with the above recommended structure
+3. [`.west/config`](./sample-config/_dot_west/config): `west` tool configuration setup to work with the above recommended structure
+    > [!CAUTION]
+    > Make sure to put the sample in a hidden `.west` directory, as `west` requires this for its configuration.
 4. (Optional)[`boards/<overlay>.overlay`](./sample-config/boards/rpi_pico2_rp2350a_m33.overlay): Board specific overlay files for configuring the Zephyr Device Tree
-
-> [!CAUTION]
-> The overlay provided is specific to the RPI Pico 2's M33 processor. Projects should configure their overlay files specifically to their board and usecase. See: [Zephyr Device Trees](https://docs.zephyrproject.org/latest/build/dts/index.html) for the whole story.
+    > [!CAUTION]
+    > The overlay provided is specific to the RPI Pico 2's M33 processor. Projects should configure their overlay files specifically to their board and usecase. See: [Zephyr Device Trees](https://docs.zephyrproject.org/latest/build/dts/index.html) for the whole story.
 
 ## Installing Zephyr
 
@@ -69,12 +70,32 @@ west sdk install
 > [!TIP]
 > These commands will take quite some time to run.
 
-TODO:
-1. CMake integration
-2. CMake Deployment integration
-3. Exclude Zephyr/Modules from indexing
-4. Add sample files
+## Integrating Zephyr's CMake with F Prime
 
+In order to integrate Zephyr and F Prime CMake systems, you should add the following lines to your top-level `CMakeLists.txt` file, before the `project()` call:
 
+```cmake
+# Enable Zephyr when not performing a unit testing build
+if (NOT BUILD_TESTING)
+    find_package(Zephyr HINTS "${CMAKE_CURRENT_LIST_DIR}/lib/zephyr-workspace")
+endif()
+project(...)
+...
+```
 
+## Adding Zephyr Deployments
 
+In order to turn an F Prime deployment into a Zephyr deployment, you need to add the following calls to your deployment's `CMakeLists.txt` file:
+
+```cmake
+register_fprime_zephyr_deployment(
+        ${FPRIME_CURRENT_MODULE}
+    SOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/Main.cpp"
+    DEPENDS
+        ${FPRIME_CURRENT_MODULE}_Top
+)
+```
+
+> [!TIP]
+> This will add `Main.cpp` to the Zephyr `app` target source list and sets up the topology module as a dependency.
