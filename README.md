@@ -44,3 +44,10 @@ project-folder/
 │
 └── boards/                  # OPTIONAL: custom board definitions and overlays
 ```
+
+The initial `fprime-bootstrap` and `git submodule add` steps to include this directory in a new project will create most of this structure. Users must create the following files. `fprime-zephyr` provides initial samples for each of these files
+
+1. [`proj.conf`](./sample-config/proj.conf): contains the Zephyr KConfig options for the project
+2. [`west.yml`](./sample-config/west.yml): configuration for the extra modules used by Zephyr
+3. [`.west/config`](./sample-config/.west/config): `west` tool configuration setup to work with the above recommended structure
+4. (Optional)[`boards/<overlay>.overlay](./sample-config/boards/rpi_pico2_rp2350a_m33.overlay): Board specific overlay files for configuring the Zephyr Device Tree
