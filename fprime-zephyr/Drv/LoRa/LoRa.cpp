@@ -64,6 +64,8 @@ LoRa::Status LoRa ::enableTx() {
     FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
     const LoRaCodingRate coding_rate = this->paramGet_CODING_RATE(isValid);
     FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
+    const LoRaBandwidth bandwidth = this->paramGet_BANDWIDTH_TX(isValid);
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
 
     // Disable async receive while in TX mode
     int status = lora_recv_async(this->m_lora_device, nullptr, nullptr);
@@ -72,6 +74,8 @@ LoRa::Status LoRa ::enableTx() {
         BASE_CONFIG.tx = true;
         BASE_CONFIG.datarate = static_cast<enum lora_datarate>(data_rate.e);
         BASE_CONFIG.coding_rate = static_cast<enum lora_coding_rate>(coding_rate.e);
+        BASE_CONFIG.bandwidth = static_cast<enum lora_signal_bandwidth>(bandwidth.e);
+
         status = lora_config(this->m_lora_device, &BASE_CONFIG);
     }
     return (status < 0) ? Status::ERROR : Status::SUCCESS;
@@ -80,14 +84,17 @@ LoRa::Status LoRa ::enableTx() {
 LoRa::Status LoRa ::enableRx(bool initial) {
     Fw::ParamValid isValid = Fw::ParamValid::INVALID;
     const LoRaDataRate data_rate = this->paramGet_DATA_RATE(isValid);
-    FW_ASSERT(isValid != Fw::ParamValid::INVALID, static_cast<FwAssertArgType>(isValid));
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
     const LoRaCodingRate coding_rate = this->paramGet_CODING_RATE(isValid);
-    FW_ASSERT(isValid != Fw::ParamValid::INVALID, static_cast<FwAssertArgType>(isValid));
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
+    const LoRaBandwidth bandwidth = this->paramGet_BANDWIDTH_RX(isValid);
+    FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
 
     // Update BASE_CONFIG in-place to save on stack space
     BASE_CONFIG.tx = false;
     BASE_CONFIG.datarate = static_cast<enum lora_datarate>(data_rate.e);
     BASE_CONFIG.coding_rate = static_cast<enum lora_coding_rate>(coding_rate.e);
+    BASE_CONFIG.bandwidth = static_cast<enum lora_signal_bandwidth>(bandwidth.e);
 
     // On the initial configuration log the config parameters
     if (initial) {
@@ -126,6 +133,8 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
                 this->log_WARNING_HI_SendFailed(static_cast<I32>(send_status));
                 returnStatus = Fw::Success::FAILURE;
             } else {
+                this->m_bytes_sent += data.getSize();
+                this->tlmWrite_BytesSent(this->m_bytes_sent);
                 returnStatus = Fw::Success::SUCCESS;
                 this->log_WARNING_HI_ConfigurationFailed_ThrottleClear();
                 this->log_WARNING_HI_SendFailed_ThrottleClear();
@@ -157,6 +166,8 @@ void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
     if (buffer.isValid()) {
         (void)::memcpy(buffer.getData(), data + sizeof(LoRaConfig::HEADER), payload_size);
         ComCfg::FrameContext frameContext;
+        this->m_bytes_received += payload_size;
+        this->tlmWrite_BytesReceived(this->m_bytes_received);
         this->dataOut_out(0, buffer, frameContext);
     } else {
         this->log_WARNING_HI_AllocationFailed(payload_size);
@@ -183,19 +194,18 @@ void LoRa ::TRANSMIT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, TransmitState e
     Os::ScopeLock lock(this->m_mutex);
     // Want to enable
     if (enabled == TransmitState::ENABLED) {
-        Fw::Logger::log("[LoRa] State: %" PRI_U8 "\n", this->m_transmit_enabled.e);
         // Start the ping-pong protocol if we are disabled
         if (this->m_transmit_enabled == TransmitState::DISABLED) {
-            Fw::Logger::log("[LoRa] Starting COM status ping-pong protocol\n");
+            // Must transition to ENABLED **BEFORE** calling comStatusOut
+            this->m_transmit_enabled = TransmitState::ENABLED;
             Fw::Success comStatus = Fw::Success::SUCCESS;
             this->comStatusOut_out(0, comStatus);
         }
-        // Always go to enabled state
+        // Set ENABLED for all other cases
         this->m_transmit_enabled = TransmitState::ENABLED;
     }
     // Want to disable
     else {
-        Fw::Logger::log("[LoRa] State: %" PRI_U8 "\n", enabled.e);
         // If not already diabled, then the ping-pong protocol should be stopped and thus we go to DISABLING state
         if (this->m_transmit_enabled != TransmitState::DISABLED) {
             this->m_transmit_enabled = TransmitState::DISABLING;
@@ -203,6 +213,4 @@ void LoRa ::TRANSMIT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, TransmitState e
     }
     this->cmdResponse_out(opCode, cmdSeq, Fw::CmdResponse::OK);
 }
-
-
 }  // namespace Zephyr

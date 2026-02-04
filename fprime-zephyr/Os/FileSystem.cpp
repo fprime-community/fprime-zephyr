@@ -1,58 +1,63 @@
 // ======================================================================
-// \title Os/Posix/FileSystem.cpp
+// \title fprime-zephyr/Os/FileSystem.cpp
 // \brief Posix implementation for Os::FileSystem
 // ======================================================================
-#include "Os/Posix/FileSystem.hpp"
-#include "Os/Posix/error.hpp"
+#include "fprime-zephyr/Os/FileSystem.hpp"
+#include "Os/Posix/error.hpp" // Zephyr uses Posix error codes (but negated)
 
-#include <dirent.h>
+
 #include <zephyr/fs/fs.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <cstdio>
-
-#include <cerrno>
 
 namespace Os {
-namespace Posix {
+namespace Zephyr {
 namespace FileSystem {
 
-PosixFileSystem::Status PosixFileSystem::_removeDirectory(const char* path) {
-    Status status = OP_OK;
-    if (::rmdir(path) == -1) {
-        status = errno_to_filesystem_status(errno);
+
+ZephyrFileSystem::Status remove_helper(const char* path) {
+    ZephyrFileSystem::Status status = ZephyrFileSystem::Status::OP_OK;
+    int errno_status = fs_unlink(path);
+    if (errno_status != 0) {
+        status = Os::Posix::errno_to_filesystem_status(-1 * errno_status);
     }
     return status;
 }
 
-PosixFileSystem::Status PosixFileSystem::_removeFile(const char* path) {
-    Status status = OP_OK;
-    if (::unlink(path) == -1) {
-        status = errno_to_filesystem_status(errno);
+ZephyrFileSystem::Status ZephyrFileSystem::_removeDirectory(const char* path) {
+    PathType pathType;
+    ZephyrFileSystem::Status status = ZephyrFileSystem::_getPathType(path, pathType);
+    if (status == OP_OK && pathType != PathType::DIRECTORY) {
+        status = Status::NOT_DIR;
+    } else if (status == OP_OK) {
+        status = remove_helper(path);
     }
     return status;
 }
 
-PosixFileSystem::Status PosixFileSystem::_rename(const char* originPath, const char* destPath) {
+ZephyrFileSystem::Status ZephyrFileSystem::_removeFile(const char* path) {
+    return remove_helper(path);
+}
+
+ZephyrFileSystem::Status ZephyrFileSystem::_rename(const char* originPath, const char* destPath) {
     Status status = OP_OK;
-    if (::rename(originPath, destPath) == -1) {
-        status = errno_to_filesystem_status(errno);
+    int errno_status = fs_rename(originPath, destPath);
+    if (errno_status != 0) {
+        status = Os::Posix::errno_to_filesystem_status(-1 * errno_status);
     }
     return status;
 }
 
-PosixFileSystem::Status PosixFileSystem::_getWorkingDirectory(char* path, FwSizeType bufferSize) {
+ZephyrFileSystem::Status ZephyrFileSystem::_getWorkingDirectory(char* path, FwSizeType bufferSize) {
     // Working directories not supported in Zephyr
     Status status = NOT_SUPPORTED;
     return status;
 }
 
-PosixFileSystem::Status PosixFileSystem::_changeWorkingDirectory(const char* path) {
+ZephyrFileSystem::Status ZephyrFileSystem::_changeWorkingDirectory(const char* path) {
     Status status = NOT_SUPPORTED;
     return status;
 }
 
-PosixFileSystem::Status PosixFileSystem::_getFreeSpace(const char* path,
+ZephyrFileSystem::Status ZephyrFileSystem::_getFreeSpace(const char* path,
                                                        FwSizeType& totalBytes,
                                                        FwSizeType& freeBytes) {
 
@@ -66,9 +71,9 @@ PosixFileSystem::Status PosixFileSystem::_getFreeSpace(const char* path,
 
 
     struct fs_statvfs fsStat;
-    int ret = fs_statvfs(path, &fsStat);
-    if (ret) {
-        return errno_to_filesystem_status(errno);
+    int errno_status = fs_statvfs(path, &fsStat);
+    if (errno_status != 0) {
+        return Os::Posix::errno_to_filesystem_status(-1 * errno_status);
     }
 
     const FwSizeType block_size = static_cast<FwSizeType>(fsStat.f_frsize);
@@ -85,29 +90,27 @@ PosixFileSystem::Status PosixFileSystem::_getFreeSpace(const char* path,
     return stat;
 }
 
-FileSystemHandle* PosixFileSystem::getHandle() {
+FileSystemHandle* ZephyrFileSystem::getHandle() {
     return &this->m_handle;
 }
 
-PosixFileSystem::Status PosixFileSystem::_getPathType(const char* path, PathType& pathType) {
+ZephyrFileSystem::Status ZephyrFileSystem::_getPathType(const char* path, PathType& pathType) {
     FW_ASSERT(path != nullptr);
-    // Switched to stat instead of lstat because Zephyr does not support lstat.
-    struct stat path_stat;
-    const I32 status = stat(path, &path_stat);
-    if (status == 0) {
-        if (S_ISDIR(path_stat.st_mode)) {
-            pathType = PathType::DIRECTORY;
-        } else if (S_ISREG(path_stat.st_mode)) {
-            pathType = PathType::FILE;
-        } else {
-            pathType = PathType::OTHER;
-        }
-        return Status::OP_OK;
+    struct fs_dirent entry;
+    Status status = OP_OK;
+    int errno_status = fs_stat(path, &entry);
+    if (errno_status != 0) {
+        status = Os::Posix::errno_to_filesystem_status(-1 * errno_status);
+    } else if (entry.type == FS_DIR_ENTRY_DIR) {
+        pathType = PathType::DIRECTORY;
+    } else if (entry.type == FS_DIR_ENTRY_FILE) {
+        pathType = PathType::FILE;
     } else {
-        return errno_to_filesystem_status(errno);
+        pathType = PathType::OTHER;
     }
+    return status;
 }
 
 }  // namespace FileSystem
-}  // namespace Posix
+}  // namespace Zephyr
 }  // namespace Os

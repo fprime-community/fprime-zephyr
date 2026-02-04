@@ -1,18 +1,23 @@
 module Zephyr {
     enum LoRaDataRate : U8{
-        SF_6 = 6
+        # EXCLUDED: DOES not work. SF_6 = 6
         SF_7 = 7
         SF_8 = 8
         SF_9 = 9
         SF_10 = 10
-        SF_11 = 11
-        SF_12 = 12
+        # EXCLUDED: KILLS radio SF_11 = 11
+        # EXCLUDED: KILLS radio SF_12 = 12
     }
     enum LoRaCodingRate : U8 {
         CR_4_5 = 1
         CR_4_6 = 2
         CR_4_7 = 3
         CR_4_8 = 4
+    }
+    enum LoRaBandwidth : U8 {
+        BW_125_KHZ = 0
+        BW_250_KHZ = 1
+        BW_500_KHZ = 2
     }
     enum LoRaMode : U8 {
         Transmit,
@@ -38,6 +43,12 @@ module Zephyr {
         @ Data rate / spreading factor
         param DATA_RATE: LoRaDataRate default LoRaDataRate.SF_8
 
+        @ Bandwidth for transmission
+        param BANDWIDTH_TX: LoRaBandwidth default LoRaBandwidth.BW_125_KHZ
+
+        @ Bandwidth for reception
+        param BANDWIDTH_RX: LoRaBandwidth default LoRaBandwidth.BW_125_KHZ
+
         @ Continuous wave transmission
         sync command CONTINUOUS_WAVE(seconds: U16)
 
@@ -55,6 +66,12 @@ module Zephyr {
         @ Event to indicate allocation failure
         event AllocationFailed(allocation_size: FwSizeType) severity warning high \
             format "Failed to allocate buffer of: {} bytes" throttle 2
+
+        @ Bytes received
+        telemetry BytesReceived: FwSizeType update on change
+
+        @ Bytes received
+        telemetry BytesSent: FwSizeType update on change
 
         @ Last received RSSI
         telemetry LastRssi: I16 update on change
