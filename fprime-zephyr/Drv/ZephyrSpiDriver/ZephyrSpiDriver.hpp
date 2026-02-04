@@ -30,8 +30,8 @@ public:
   //! Destroy ZephyrSpiDriver object
   ~ZephyrSpiDriver();
 
-private:
   void configure(const struct device *device, spi_config spiConfig);
+private:
 
   // ----------------------------------------------------------------------
   // Handler implementations for typed input ports
@@ -40,11 +40,14 @@ private:
   //! Handler implementation for SpiReadWrite
   //!
   //! Port to perform a synchronous read/write operation over the SPI bus
+  Drv::SpiStatus SpiWriteRead_handler(FwIndexType portNum, //!< The port number
+                            Fw::Buffer &writeBuffer,
+                            Fw::Buffer &readBuffer) override;
   void SpiReadWrite_handler(FwIndexType portNum, //!< The port number
                             Fw::Buffer &writeBuffer,
                             Fw::Buffer &readBuffer) override;
 
-  struct spi_config m_spiConfig; 
+  struct spi_config m_spiConfig;
   const struct device *m_dev;
 };
 

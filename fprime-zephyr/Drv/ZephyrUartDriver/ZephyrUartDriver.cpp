@@ -10,7 +10,6 @@
 #include "Fw/Types/Assert.hpp"
 #include <Fw/FPrimeBasicTypes.hpp>
 
-
 namespace Zephyr {
 
     // ----------------------------------------------------------------------
@@ -93,9 +92,13 @@ namespace Zephyr {
         Fw::Buffer recv_buffer = this->allocate_out(0, SERIAL_BUFFER_SIZE);
 
         U32 recv_size = ring_buf_get(&this->m_ring_buf, recv_buffer.getData(), recv_buffer.getSize());
-        recv_buffer.setSize(recv_size);
-
-        recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
+        if (recv_size == 0) {
+            // No data received, deallocate buffer
+            this->deallocate_out(0, recv_buffer);
+        } else {
+            recv_buffer.setSize(recv_size);
+            recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
+        }
     }
 
     Drv::ByteStreamStatus ZephyrUartDriver ::
