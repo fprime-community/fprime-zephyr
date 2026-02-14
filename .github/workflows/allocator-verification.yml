@@ -75,6 +75,7 @@ jobs:
           cd proves-core-reference
           make submodules
           make fprime-venv
+          make generate-auth-key
           make zephyr
           make keys/proves.pem
 
