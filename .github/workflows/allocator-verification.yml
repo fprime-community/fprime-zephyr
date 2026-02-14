@@ -76,6 +76,7 @@ jobs:
           make submodules
           make fprime-venv
           make zephyr
+          make keys/proves.pem
 
       - name: Export Zephyr SDK location
         run: |
