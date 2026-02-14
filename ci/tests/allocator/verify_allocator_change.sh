@@ -38,12 +38,15 @@ PYTHON_BIN="$(python -c 'import sys; print(sys.executable)')"
 LIB_PATHS="${ROOT};${PROVES_CORE_REFERENCE_DIR}/lib/fprime-extras"
 
 fprime-util generate -r "${PROVES_CORE_REFERENCE_DIR}" \
+    -p "${PROVES_CORE_REFERENCE_DIR}" \
     --build-cache "${BUILD_CACHE}" \
     -f \
     -DFPRIME_LIBRARY_LOCATIONS="${LIB_PATHS}" \
     -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
     -DPython3_EXECUTABLE="${PYTHON_BIN}"
 
-fprime-util build -r "${PROVES_CORE_REFERENCE_DIR}" --build-cache "${BUILD_CACHE}"
+fprime-util build -r "${PROVES_CORE_REFERENCE_DIR}" \
+    -p "${PROVES_CORE_REFERENCE_DIR}" \
+    --build-cache "${BUILD_CACHE}"
 
 echo "PASS: integration generate/build completed"
