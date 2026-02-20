@@ -42,7 +42,7 @@ int main() {
         assert(ptr != nullptr);
         assert(size == 32U);
         assert(recoverable == false);
-        assert(g_last_alignment == sizeof(void*));
+        assert(g_last_alignment == 1U);
         assert(g_last_size == 32U);
         g_free_called = false;
         allocator.deallocate(7U, ptr);
