@@ -25,11 +25,7 @@ class ZephyrKmallocAllocator final : public MemAllocator {
         recoverable = false;
 
         FW_ASSERT(size <= std::numeric_limits<size_t>::max(), static_cast<FwAssertArgType>(size));
-        const size_t requestedAlignment = static_cast<size_t>(alignment);
-        const size_t minAlignment = sizeof(void*);
-        const size_t finalAlignment = (requestedAlignment < minAlignment) ? minAlignment : requestedAlignment;
-
-        void* memory = k_aligned_alloc(finalAlignment, static_cast<size_t>(size));
+        void* memory = k_aligned_alloc(static_cast<size_t>(alignment), static_cast<size_t>(size));
         if (memory == nullptr) {
             size = 0;
         }
