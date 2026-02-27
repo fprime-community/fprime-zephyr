@@ -38,7 +38,11 @@ class ZephyrKmallocAllocator final : public MemAllocator {
             safeAlignment++;
         }
 
-        void* memory = k_aligned_alloc(static_cast<size_t>(safeAlignment), static_cast<size_t>(size));
+        // k_aligned_alloc (C11 aligned_alloc) requires size to be a multiple of alignment
+        const FwSizeType remainder = size % safeAlignment;
+        const FwSizeType allocSize = (remainder == 0U) ? size : (size + safeAlignment - remainder);
+
+        void* memory = k_aligned_alloc(static_cast<size_t>(safeAlignment), static_cast<size_t>(allocSize));
         if (memory == nullptr) {
             size = 0;
         }

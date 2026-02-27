@@ -76,6 +76,19 @@ int main() {
         allocator.deallocate(9U, ptr);
     }
 
+    // Size is rounded up to a multiple of alignment
+    {
+        FwSizeType size = 55U;
+        bool recoverable = true;
+        void* ptr = allocator.allocate(14U, size, recoverable, 16U);
+        assert(ptr != nullptr);
+        assert(size == 55U);
+        assert(recoverable == false);
+        assert(g_last_alignment == 16U);
+        assert(g_last_size == 64U);
+        allocator.deallocate(14U, ptr);
+    }
+
     // Allocation failure returns nullptr and zeroes size
     {
         g_force_alloc_fail = true;
