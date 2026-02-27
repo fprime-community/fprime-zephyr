@@ -35,6 +35,7 @@ int main() {
 
     Fw::MemoryAllocation::DefaultMemoryAllocatorType allocator;
 
+    // Small alignment is rounded up to sizeof(void*)
     {
         FwSizeType size = 32U;
         bool recoverable = true;
@@ -42,13 +43,14 @@ int main() {
         assert(ptr != nullptr);
         assert(size == 32U);
         assert(recoverable == false);
-        assert(g_last_alignment == 1U);
+        assert(g_last_alignment == sizeof(void*));
         assert(g_last_size == 32U);
         g_free_called = false;
         allocator.deallocate(7U, ptr);
         assert(g_free_called);
     }
 
+    // Valid power-of-two alignment is passed through
     {
         FwSizeType size = 64U;
         bool recoverable = true;
@@ -61,6 +63,20 @@ int main() {
         allocator.deallocate(11U, ptr);
     }
 
+    // Non-power-of-two alignment is rounded up
+    {
+        FwSizeType size = 48U;
+        bool recoverable = true;
+        void* ptr = allocator.allocate(9U, size, recoverable, 12U);
+        assert(ptr != nullptr);
+        assert(size == 48U);
+        assert(recoverable == false);
+        assert(g_last_alignment == 16U);
+        assert(g_last_size == 48U);
+        allocator.deallocate(9U, ptr);
+    }
+
+    // Allocation failure returns nullptr and zeroes size
     {
         g_force_alloc_fail = true;
         FwSizeType size = 55U;
