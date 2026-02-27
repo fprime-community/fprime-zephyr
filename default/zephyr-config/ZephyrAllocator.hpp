@@ -1,9 +1,9 @@
 // ======================================================================
-// \title  config/MemoryAllocation.hpp
+// \title  config/ZephyrAllocator.hpp
 // \brief  Zephyr memory allocator using k_malloc/k_aligned_alloc
 // ======================================================================
-#ifndef CONFIG_MEMORY_ALLOCATION_HPP
-#define CONFIG_MEMORY_ALLOCATION_HPP
+#ifndef CONFIG_ZEPHYR_ALLOCATOR_HPP
+#define CONFIG_ZEPHYR_ALLOCATOR_HPP
 
 #include <Fw/Types/MemAllocator.hpp>
 #include <zephyr/kernel.h>
@@ -56,9 +56,6 @@ class ZephyrKmallocAllocator final : public MemAllocator {
     }
 };
 
-namespace MemoryAllocation {
-using DefaultMemoryAllocatorType = Fw::ZephyrKmallocAllocator;
-}  // namespace MemoryAllocation
 }  // namespace Fw
 
-#endif  // CONFIG_MEMORY_ALLOCATION_HPP
+#endif  // CONFIG_ZEPHYR_ALLOCATOR_HPP

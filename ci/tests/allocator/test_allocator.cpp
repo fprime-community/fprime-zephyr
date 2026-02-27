@@ -41,7 +41,7 @@ void k_free(void* ptr) {
 
 // Include the real allocator header under test.
 // Mock headers are found via -Imocks, real header via -I path.
-#include "MemoryAllocation.hpp"
+#include "ZephyrAllocator.hpp"
 
 static void reset() {
     g_lastCall = CALL_NONE;
@@ -151,17 +151,6 @@ int main() {
     assert(g_freedPtr == fake_mem);
     printf("PASS\n");
 
-    // Test 10: DefaultMemoryAllocatorType is ZephyrKmallocAllocator
-    printf("Test 10: DefaultMemoryAllocatorType works... ");
-    Fw::MemoryAllocation::DefaultMemoryAllocatorType defaultAlloc;
-    reset();
-    g_returnPtr = fake_mem;
-    size = 10;
-    result = defaultAlloc.allocate(0, size, recoverable);
-    assert(g_lastCall == CALL_KMALLOC);
-    assert(result == fake_mem);
-    printf("PASS\n");
-
-    printf("\nAll %d tests passed!\n", 10);
+    printf("\nAll %d tests passed!\n", 9);
     return 0;
 }
