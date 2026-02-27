@@ -6,5 +6,7 @@
 register_fprime_config(
     HEADERS
         "${CMAKE_CURRENT_LIST_DIR}/LoRaCfg.hpp"
+    CONFIGURATION_OVERRIDES
+        "${CMAKE_CURRENT_LIST_DIR}/MemoryAllocation.hpp"
     INTERFACE
 )
