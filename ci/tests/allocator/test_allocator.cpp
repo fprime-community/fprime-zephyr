@@ -103,7 +103,7 @@ int main() {
     assert(result == fake_mem);
     printf("PASS\n");
 
-    // Test 5: Non-power-of-2 alignment is rounded up to next power of 2
+    // Test 5: Non-power-of-2 alignment is rounded up and size is padded
     printf("Test 5: Non-power-of-2 alignment rounded up... ");
     reset();
     g_returnPtr = fake_mem;
@@ -112,10 +112,10 @@ int main() {
     result = alloc.allocate(0, size, recoverable, 48);
     assert(g_lastCall == CALL_KALIGNED);
     assert(g_lastAlignment == 64);
-    assert(g_lastSize == 100);
+    assert(g_lastSize == 128);
     printf("PASS\n");
 
-    // Test 6: Another non-power-of-2: 12 -> 16
+    // Test 6: Another non-power-of-2: 12 -> 16, size rounded up as well
     printf("Test 6: Alignment 12 -> rounds to 16... ");
     reset();
     g_returnPtr = fake_mem;
@@ -123,10 +123,22 @@ int main() {
     result = alloc.allocate(0, size, recoverable, 12);
     assert(g_lastCall == CALL_KALIGNED);
     assert(g_lastAlignment == 16);
+    assert(g_lastSize == 64);
     printf("PASS\n");
 
-    // Test 7: Zero alignment treated as 1, uses k_malloc
-    printf("Test 7: Zero alignment -> k_malloc... ");
+    // Test 7: Size already aligned is passed through unchanged
+    printf("Test 7: Aligned size unchanged... ");
+    reset();
+    g_returnPtr = fake_mem;
+    size = 64;
+    result = alloc.allocate(0, size, recoverable, 16);
+    assert(g_lastCall == CALL_KALIGNED);
+    assert(g_lastAlignment == 16);
+    assert(g_lastSize == 64);
+    printf("PASS\n");
+
+    // Test 8: Zero alignment treated as 1, uses k_malloc
+    printf("Test 8: Zero alignment -> k_malloc... ");
     reset();
     g_returnPtr = fake_mem;
     size = 32;
@@ -134,8 +146,8 @@ int main() {
     assert(g_lastCall == CALL_KMALLOC);
     printf("PASS\n");
 
-    // Test 8: Allocation failure returns nullptr and zeroes size
-    printf("Test 8: Allocation failure -> nullptr, size=0... ");
+    // Test 9: Allocation failure returns nullptr and zeroes size
+    printf("Test 9: Allocation failure -> nullptr, size=0... ");
     reset();
     g_returnPtr = nullptr;
     size = 64;
@@ -144,13 +156,13 @@ int main() {
     assert(size == 0);
     printf("PASS\n");
 
-    // Test 9: Deallocate calls k_free with correct pointer
-    printf("Test 9: Deallocate -> k_free... ");
+    // Test 10: Deallocate calls k_free with correct pointer
+    printf("Test 10: Deallocate -> k_free... ");
     reset();
     alloc.deallocate(0, fake_mem);
     assert(g_freedPtr == fake_mem);
     printf("PASS\n");
 
-    printf("\nAll %d tests passed!\n", 9);
+    printf("\nAll %d tests passed!\n", 10);
     return 0;
 }

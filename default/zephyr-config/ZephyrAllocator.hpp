@@ -41,9 +41,15 @@ class ZephyrKmallocAllocator final : public MemAllocator {
         // Use k_malloc for default/small alignments (simpler, no over-allocation).
         // Use k_aligned_alloc only when a larger alignment is requested.
         const FwSizeType minAlignment = static_cast<FwSizeType>(sizeof(void*));
-        void* memory = (safeAlignment <= minAlignment)
-                            ? k_malloc(static_cast<size_t>(size))
-                            : k_aligned_alloc(static_cast<size_t>(safeAlignment), static_cast<size_t>(size));
+        void* memory = nullptr;
+        if (safeAlignment <= minAlignment) {
+            memory = k_malloc(static_cast<size_t>(size));
+        } else {
+            // C11 aligned_alloc requires size to be a multiple of alignment.
+            const FwSizeType remainder = size % safeAlignment;
+            const FwSizeType allocSize = (remainder == 0U) ? size : (size + safeAlignment - remainder);
+            memory = k_aligned_alloc(static_cast<size_t>(safeAlignment), static_cast<size_t>(allocSize));
+        }
         if (memory == nullptr) {
             size = 0;
         }
