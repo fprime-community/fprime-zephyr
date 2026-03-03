@@ -115,26 +115,36 @@ int main() {
     assert(g_lastSize == 128);
     printf("PASS\n");
 
-    // Test 6: Another non-power-of-2: 12 -> 16, size rounded up as well
-    printf("Test 6: Alignment 12 -> rounds to 16... ");
+    // Test 6: Non-power-of-2 alignment 24 -> rounds to 32, size rounded up
+    printf("Test 6: Alignment 24 -> rounds to 32... ");
     reset();
     g_returnPtr = fake_mem;
     size = 50;
-    result = alloc.allocate(0, size, recoverable, 12);
+    result = alloc.allocate(0, size, recoverable, 24);
     assert(g_lastCall == CALL_KALIGNED);
-    assert(g_lastAlignment == 16);
-    assert(g_lastSize == 64);
+    assert(g_lastAlignment == 32);
+    assert(g_lastSize == 64);  // 50 rounded up to next multiple of 32
     printf("PASS\n");
 
-    // Test 7: Size already aligned is passed through unchanged
+    // Test 7: Size already a multiple of alignment is passed unchanged
     printf("Test 7: Aligned size unchanged... ");
     reset();
     g_returnPtr = fake_mem;
     size = 64;
-    result = alloc.allocate(0, size, recoverable, 16);
+    result = alloc.allocate(0, size, recoverable, 32);
     assert(g_lastCall == CALL_KALIGNED);
-    assert(g_lastAlignment == 16);
+    assert(g_lastAlignment == 32);
     assert(g_lastSize == 64);
+    printf("PASS\n");
+
+    // Test 7b: Alignment at alignof(max_align_t) threshold uses k_malloc
+    printf("Test 7b: Alignment == alignof(max_align_t) -> k_malloc... ");
+    reset();
+    g_returnPtr = fake_mem;
+    size = 100;
+    result = alloc.allocate(0, size, recoverable, alignof(std::max_align_t));
+    assert(g_lastCall == CALL_KMALLOC);
+    assert(g_lastSize == 100);
     printf("PASS\n");
 
     // Test 8: Zero alignment treated as 1, uses k_malloc
@@ -163,6 +173,6 @@ int main() {
     assert(g_freedPtr == fake_mem);
     printf("PASS\n");
 
-    printf("\nAll %d tests passed!\n", 10);
+    printf("\nAll %d tests passed!\n", 11);
     return 0;
 }
