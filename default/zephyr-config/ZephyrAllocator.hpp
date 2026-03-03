@@ -39,8 +39,11 @@ class ZephyrKmallocAllocator final : public MemAllocator {
         }
 
         // Use k_malloc for default/small alignments (simpler, no over-allocation).
-        // Use k_aligned_alloc only when a larger alignment is requested.
-        const FwSizeType minAlignment = static_cast<FwSizeType>(sizeof(void*));
+        // Use k_aligned_alloc only when a larger alignment is explicitly requested.
+        // On 32-bit ARM sizeof(void*)==4 but alignof(max_align_t)==8, so the old
+        // sizeof(void*) threshold routed every default allocation through
+        // k_aligned_alloc, which can freeze the board.
+        const FwSizeType minAlignment = static_cast<FwSizeType>(alignof(std::max_align_t));
         void* memory = nullptr;
         if (safeAlignment <= minAlignment) {
             memory = k_malloc(static_cast<size_t>(size));
