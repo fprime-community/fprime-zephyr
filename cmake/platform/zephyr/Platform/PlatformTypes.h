@@ -50,4 +50,17 @@ typedef uint8_t PlatformPointerCastType;
 }
 #endif
 
+// Zephyr uses FS_SEEK_* constants instead of POSIX SEEK_* constants
+// Map them for compatibility with fprime's Posix File implementation
+#include <zephyr/fs/fs.h>
+#ifndef SEEK_SET
+#define SEEK_SET FS_SEEK_SET
+#endif
+#ifndef SEEK_CUR
+#define SEEK_CUR FS_SEEK_CUR
+#endif
+#ifndef SEEK_END
+#define SEEK_END FS_SEEK_END
+#endif
+
 #endif  // PLATFORM_TYPES_H_
