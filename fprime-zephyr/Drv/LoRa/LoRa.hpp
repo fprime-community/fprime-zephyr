@@ -72,6 +72,13 @@ class LoRa final : public LoRaComponentBase {
     void CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode,  //!< The opcode
                                     U32 cmdSeq,           //!< The command sequence number
                                     U16 seconds) override;
+
+    //! Handler implementation for command SET_FREQ
+    //!
+    //! Set the LoRa frequency in Hz
+    void SET_FREQ_cmdHandler(FwOpcodeType opCode,  //!< The opcode
+                             U32 cmdSeq,           //!< The command sequence number
+                             U32 freq_hz) override;
     
     //! Handler implementation for command TRANSMIT
     //!
