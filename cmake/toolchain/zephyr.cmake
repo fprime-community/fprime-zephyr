@@ -76,7 +76,7 @@ function(register_fprime_zephyr_deployment)
     add_custom_target(${BUILD_TARGET_NAME} ALL DEPENDS zephyr_final fprime-zephyr-deployment_dictionary
         COMMAND "${CMAKE_COMMAND}"
             -DCMAKE_INSTALL_COMPONENT=fprime-zephyr-binaries
-            -DFPRIME_INSTALL_DIRECTORY=${FPRIME_INSTALL_DIRECTORY}
+            -DFPRIME_INSTALL_DEST=${FPRIME_INSTALL_DEST}
             -DFPRIME_BUILD_DIR=${CMAKE_BINARY_DIR}
             -P ${FPRIME_FRAMEWORK_PATH}/cmake/target/fprime_install.cmake
     )
