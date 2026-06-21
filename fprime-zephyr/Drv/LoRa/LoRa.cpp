@@ -11,7 +11,7 @@ namespace Zephyr {
 
 // Base configuration for the LoRa modem
 struct lora_modem_config BASE_CONFIG = {
-    .frequency = LoRaConfig::FREQUENCY,
+    .frequency = LoRaConfig::DEFAULT_FREQ,
     .bandwidth = BW_125_KHZ,
     .datarate = SF_8,
     .coding_rate = CR_4_5,
@@ -183,9 +183,18 @@ void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
 void LoRa ::CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U16 seconds) {
     Status status = this->enableTx();
     if (status == Status::SUCCESS) {
-        lora_test_cw(this->m_lora_device, LoRaConfig::FREQUENCY, LoRaConfig::TX_POWER, seconds);
+        lora_test_cw(this->m_lora_device, BASE_CONFIG.frequency, LoRaConfig::TX_POWER, seconds);
         status = this->enableRx();
     }
+    this->cmdResponse_out(opCode, cmdSeq,
+                          (status == Status::SUCCESS) ? Fw::CmdResponse::OK : Fw::CmdResponse::EXECUTION_ERROR);
+}
+
+void LoRa ::SET_FREQ_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 freq_hz) {
+    Os::ScopeLock lock(this->m_mutex);
+    lora_recv_async(this->m_lora_device, nullptr, nullptr);
+    BASE_CONFIG.frequency = freq_hz;
+    Status status = this->enableRx();
     this->cmdResponse_out(opCode, cmdSeq,
                           (status == Status::SUCCESS) ? Fw::CmdResponse::OK : Fw::CmdResponse::EXECUTION_ERROR);
 }

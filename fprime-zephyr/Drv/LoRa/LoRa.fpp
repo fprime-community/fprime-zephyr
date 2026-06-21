@@ -52,6 +52,9 @@ module Zephyr {
         @ Continuous wave transmission
         sync command CONTINUOUS_WAVE(seconds: U16)
 
+        @ Set the LoRa frequency in Hz
+        sync command SET_FREQ(freq_hz: U32)
+
         @ Start/stop transmission on the LoRa module
         sync command TRANSMIT(enabled: TransmitState)
 
