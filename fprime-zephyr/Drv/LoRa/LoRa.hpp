@@ -68,6 +68,14 @@ class LoRa final : public LoRaComponentBase {
                               Fw::Buffer& data,
                               const ComCfg::FrameContext& context) override;
 
+    //! Handler implementation for enableTransmit
+    void enableTransmit_handler(FwIndexType portNum  //!< The port number
+                                ) override;
+
+    //! Handler implementation for disableTransmit
+    void disableTransmit_handler(FwIndexType portNum  //!< The port number
+                                 ) override;
+
   private:
     // ----------------------------------------------------------------------
     // Handler implementations for commands
@@ -93,6 +101,10 @@ class LoRa final : public LoRaComponentBase {
     void TRANSMIT_cmdHandler(FwOpcodeType opCode,  //!< The opcode
                              U32 cmdSeq,           //!< The command sequence number
                              const TransmitState& enabled) override;
+
+    //! Set the transmit state of the LoRa component
+    //! Used by the TRANSMIT command and the enable/disable transmit port handlers
+    void setTransmitState(TransmitState state);
 
   private:
     //! Re-arm receive if the active continuous wave has ended
