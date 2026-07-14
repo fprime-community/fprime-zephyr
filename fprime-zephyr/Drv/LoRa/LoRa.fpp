@@ -79,6 +79,12 @@ module Zephyr {
         @ Last received SNR
         telemetry LastSnr: I8 update on change
 
+        @ Enable LoRa transmission
+        sync input port enableTransmit: Fw.Signal
+
+        @ Disable LoRa transmission
+        sync input port disableTransmit: Fw.Signal
+
         ###############################################################################
         # Standard AC Ports: Required for Channels, Events, Commands, and Parameters  #
         ###############################################################################
