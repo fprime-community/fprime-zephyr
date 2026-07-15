@@ -14,10 +14,11 @@ module Zephyr {
         CR_4_7 = 3
         CR_4_8 = 4
     }
-    enum LoRaBandwidth : U8 {
-        BW_125_KHZ = 0
-        BW_250_KHZ = 1
-        BW_500_KHZ = 2
+    @ Values match zephyr's enum lora_signal_bandwidth (kHz), which LoRa.cpp casts directly into
+    enum LoRaBandwidth : U16 {
+        BW_125_KHZ = 125
+        BW_250_KHZ = 250
+        BW_500_KHZ = 500
     }
     enum LoRaMode : U8 {
         Transmit,
