@@ -11,8 +11,6 @@
 #include <Fw/FPrimeBasicTypes.hpp>
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(ZephyrUartDriver, LOG_LEVEL_NONE);
-
 namespace Zephyr {
 
     // ----------------------------------------------------------------------
@@ -35,6 +33,7 @@ namespace Zephyr {
     }
 
     void ZephyrUartDriver::configure(const struct device *bleDev, const struct device *usbDev, U32 baud_rate) {
+        LOG_ERR("Yay this log shows up");
         FW_ASSERT(bleDev != nullptr);
         FW_ASSERT(usbDev != nullptr);
         m_ble_dev = bleDev;
@@ -154,13 +153,11 @@ namespace Zephyr {
     // ----------------------------------------------------------------------
 
     void ZephyrUartDriver :: schedIn_handler(const FwIndexType portNum, U32 context) {
+
+        Fw::Buffer recv_buffer = this->allocate_out(0, SERIAL_BUFFER_SIZE);
+
         ActiveUart active_uart = this->m_last_rx_ble_ms >= this->m_last_rx_usb_ms ? ActiveUart::BLE : ActiveUart::USB;
         if (active_uart == ActiveUart::BLE) {
-            if (ring_buf_is_empty(&this->m_ring_buf_ble)) {
-                return; 
-            }
-
-            Fw::Buffer recv_buffer = this->allocate_out(0, SERIAL_BUFFER_SIZE);
 
             U32 recv_size = ring_buf_get(&this->m_ring_buf_ble, recv_buffer.getData(), recv_buffer.getSize());
             if (recv_size == 0) {
@@ -168,7 +165,6 @@ namespace Zephyr {
                 this->deallocate_out(0, recv_buffer);
             } else {
                 recv_buffer.setSize(recv_size);
-                LOG_INF("schedIn: %u bytes -> recv_out(0)", recv_size);
                 this->recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
             }
 
@@ -178,11 +174,6 @@ namespace Zephyr {
             }
 
         } else {
-            if (ring_buf_is_empty(&this->m_ring_buf_usb)) {
-                return; 
-            }
-
-            Fw::Buffer recv_buffer = this->allocate_out(0, SERIAL_BUFFER_SIZE);
             
             U32 recv_size = ring_buf_get(&this->m_ring_buf_usb, recv_buffer.getData(), recv_buffer.getSize());
             if (recv_size == 0) {
@@ -190,7 +181,6 @@ namespace Zephyr {
                 this->deallocate_out(0, recv_buffer);
             } else {
                 recv_buffer.setSize(recv_size);
-                LOG_INF("schedIn: %u bytes -> recv_out(0)", recv_size);
                 this->recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
             }
 
