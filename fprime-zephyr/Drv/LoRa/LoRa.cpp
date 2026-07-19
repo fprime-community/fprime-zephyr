@@ -280,18 +280,17 @@ void LoRa ::setTransmitState(TransmitState state) {
     // Want to enable
     if (state == TransmitState::ENABLED) {
         // Start the ping-pong protocol if we are disabled
-        if (this->m_transmit_enabled == TransmitState::DISABLED) {
-            // Must transition to ENABLED **BEFORE** calling comStatusOut
-            this->m_transmit_enabled = TransmitState::ENABLED;
+        const bool was_disabled = (this->m_transmit_enabled == TransmitState::DISABLED);
+        // Must transition to ENABLED **BEFORE** calling comStatusOut
+        this->m_transmit_enabled = TransmitState::ENABLED;
+        if (was_disabled) {
             Fw::Success comStatus = Fw::Success::SUCCESS;
             this->comStatusOut_out(0, comStatus);
         }
-        // Set ENABLED for all other cases
-        this->m_transmit_enabled = TransmitState::ENABLED;
     }
     // Want to disable
     else {
-        // If not already diabled, then the ping-pong protocol should be stopped and thus we go to DISABLING state
+        // If not already disabled, then the ping-pong protocol should be stopped and thus we go to DISABLING state
         if (this->m_transmit_enabled != TransmitState::DISABLED) {
             this->m_transmit_enabled = TransmitState::DISABLING;
         }
