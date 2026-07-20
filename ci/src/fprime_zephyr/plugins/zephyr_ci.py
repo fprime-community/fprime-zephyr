@@ -81,7 +81,7 @@ class ZephyrCiBase(Ci, ABC):
             flash_command
         )
         # Make sure that the console port is openable then open it
-        self.wait_until(lambda: Path(self.port).exists(), timeout=1.0)
+        self.wait_until(lambda: Path(self.port).exists(), timeout=5.0)
         return context
 
 

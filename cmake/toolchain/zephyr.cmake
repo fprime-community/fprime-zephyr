@@ -69,17 +69,24 @@ function(register_fprime_zephyr_deployment)
     install(
         DIRECTORY ${CMAKE_BINARY_DIR}/zephyr/
         COMPONENT fprime-zephyr-binaries
-        DESTINATION ${CMAKE_INSTALL_PREFIX}
+        DESTINATION .
         FILES_MATCHING PATTERN "zephyr/zephyr.*"
         REGEX "zephyr/[^z]" EXCLUDE
     )
     add_custom_target(${BUILD_TARGET_NAME} ALL DEPENDS zephyr_final fprime-zephyr-deployment_dictionary
         COMMAND "${CMAKE_COMMAND}"
-            -DCMAKE_INSTALL_COMPONENT=fprime-zephyr-binaries -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
-    
+            -DCMAKE_INSTALL_COMPONENT=fprime-zephyr-binaries
+            -DFPRIME_INSTALL_DEST=${FPRIME_INSTALL_DEST}
+            -DFPRIME_BUILD_DIR=${CMAKE_BINARY_DIR}
+            -P ${FPRIME_FRAMEWORK_PATH}/cmake/target/fprime_install.cmake
     )
     # Integration with fprime-util is now done via special methods that write-out special metadata. Since we've
     # defined a new way of registering deployments, we must also replicate the target integration metadata.
     include(fprime-util)
     fprime_util_metadata_add_build_target("${BUILD_TARGET_NAME}")
 endfunction()
+
+# Patch in std-atomic implementations
+if (BOARD STREQUAL "rpi_pico" OR FPRIME_ZEPHYR_USE_STD_ATOMIC_FIX)
+    include_directories(BEFORE "${CMAKE_CURRENT_LIST_DIR}/../../fprime-zephyr/Os/StdAtomic")
+endif()
