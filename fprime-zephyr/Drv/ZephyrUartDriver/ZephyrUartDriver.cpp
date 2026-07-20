@@ -11,6 +11,8 @@
 #include <Fw/FPrimeBasicTypes.hpp>
 #include <zephyr/logging/log.h>
 
+LOG_MODULE_REGISTER(ZephyrUartDriver, LOG_LEVEL_INF);
+
 namespace Zephyr {
 
     // ----------------------------------------------------------------------
@@ -33,7 +35,6 @@ namespace Zephyr {
     }
 
     void ZephyrUartDriver::configure(const struct device *bleDev, const struct device *usbDev, U32 baud_rate) {
-        LOG_ERR("Yay this log shows up");
         FW_ASSERT(bleDev != nullptr);
         FW_ASSERT(usbDev != nullptr);
         m_ble_dev = bleDev;
@@ -84,8 +85,9 @@ namespace Zephyr {
                 if (!self->m_rx_throttled_ble && uart_irq_rx_ready(dev)) {
                     int recv_len, rb_len;
                     uint8_t buffer[SERIAL_BUFFER_SIZE];
-                    size_t len = MIN(ring_buf_space_get(&self->m_ring_buf_ble),
-                            sizeof(buffer));
+
+                    // len = amount of space in the ring buffer
+                    size_t len = MIN(ring_buf_space_get(&self->m_ring_buf_ble), sizeof(buffer));
         
                     if (len == 0) {
                         /* Throttle because ring buffer is full */
@@ -94,12 +96,14 @@ namespace Zephyr {
                         continue;
                     }
         
+                    // recv_len = amount of bytes read from the UART FIFO
                     recv_len = uart_fifo_read(dev, buffer, len);
                     if (recv_len < 0) {
                         LOG_ERR("Failed to read UART FIFO");
                         recv_len = 0;
                     };
-        
+
+                    // rb_len = amount of bytes written to the ring buffer
                     rb_len = ring_buf_put(&self->m_ring_buf_ble, buffer, recv_len);
                     if (rb_len < recv_len) {
                         LOG_ERR("Drop %u bytes", recv_len - rb_len);
@@ -107,6 +111,7 @@ namespace Zephyr {
         
                     LOG_INF("IRQ rx: %d bytes -> ringbuf", rb_len);
 
+                    // update the last RX time for the BLE link
                     if (rb_len > 0) {
                         self->m_last_rx_ble_ms = k_uptime_get_32();
                     }
@@ -194,12 +199,10 @@ namespace Zephyr {
     Drv::ByteStreamStatus ZephyrUartDriver :: send_handler(const FwIndexType portNum, Fw::Buffer &sendBuffer) {
         ActiveUart active_uart = this->m_last_rx_ble_ms >= this->m_last_rx_usb_ms ? ActiveUart::BLE : ActiveUart::USB;
         if (active_uart == ActiveUart::BLE) {
-            LOG_INF("TX: %u bytes", (unsigned int)sendBuffer.getSize());
             for (U32 i = 0; i < sendBuffer.getSize(); i++) {
                 uart_poll_out(this->m_ble_dev, sendBuffer.getData()[i]);
             }
         } else {
-            LOG_INF("TX: %u bytes", (unsigned int)sendBuffer.getSize());
             for (U32 i = 0; i < sendBuffer.getSize(); i++) {
                 uart_poll_out(this->m_usb_dev, sendBuffer.getData()[i]);
             }
@@ -208,7 +211,6 @@ namespace Zephyr {
     }
 
     void ZephyrUartDriver ::recvReturnIn_handler(const FwIndexType portNum, Fw::Buffer &returnBuffer) {
-        LOG_INF("Buffer deallocated, size=%u", (unsigned int)returnBuffer.getSize());
         this->deallocate_out(0, returnBuffer);
     }
 

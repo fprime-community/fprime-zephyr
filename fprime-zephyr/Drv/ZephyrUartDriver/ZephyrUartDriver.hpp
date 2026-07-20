@@ -25,7 +25,7 @@ namespace Zephyr {
 
   class ZephyrUartDriver : public ZephyrUartDriverComponentBase {
 
-    static constexpr FwSizeType SERIAL_BUFFER_SIZE = 64;
+    const FwSizeType SERIAL_BUFFER_SIZE = 64;
 
     public:
 
@@ -75,7 +75,7 @@ namespace Zephyr {
             Fw::Buffer &returnBuffer
         );
 
-        /* separate ring buffers for BLE and USB because each link produces bytes independently on its own interrupt, keeping one shared ring buffer
+        /* separate ring buffers for BLE and USB because each link produces bytes independently on its own interrupt. Keeping one shared ring buffer
            for both makes the drain policy messier and it's harder to determine which link was the last to receive data (used to determine which link to send data to)
         */
         const struct device *m_ble_dev;
