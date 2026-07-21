@@ -25,7 +25,7 @@ namespace Zephyr {
 
   class ZephyrUartDriver : public ZephyrUartDriverComponentBase {
 
-    const FwSizeType SERIAL_BUFFER_SIZE = 64;
+    static constexpr FwSizeType SERIAL_BUFFER_SIZE = 64;
 
     public:
 
