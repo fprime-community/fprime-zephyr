@@ -10,6 +10,7 @@
 #include "Fw/Types/Assert.hpp"
 #include <Fw/FPrimeBasicTypes.hpp>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/printk.h>
 
 LOG_MODULE_REGISTER(ZephyrUartDriver, LOG_LEVEL_INF);
 
@@ -157,38 +158,37 @@ namespace Zephyr {
     // Handler implementations for user-defined typed input ports
     // ----------------------------------------------------------------------
 
-    void ZephyrUartDriver :: schedIn_handler(const FwIndexType portNum, U32 context) {
-
-        Fw::Buffer recv_buffer = this->allocate_out(0, SERIAL_BUFFER_SIZE);
-
-        ActiveUart active_uart = this->m_last_rx_ble_ms >= this->m_last_rx_usb_ms ? ActiveUart::BLE : ActiveUart::USB;
-        if (active_uart == ActiveUart::BLE) {
-
-            U32 recv_size = ring_buf_get(&this->m_ring_buf_ble, recv_buffer.getData(), recv_buffer.getSize());
-            if (recv_size == 0) {
-                // no data received, deallocate buffer
-                this->deallocate_out(0, recv_buffer);
+    void ZephyrUartDriver::schedIn_handler(const FwIndexType portNum, U32 context) {
+        // --- BLE ring ---
+        {
+            Fw::Buffer buf = this->allocate_out(0, SERIAL_BUFFER_SIZE);
+            U32 n = ring_buf_get(&this->m_ring_buf_ble, buf.getData(), buf.getSize());
+            if (n == 0) {
+                this->deallocate_out(0, buf);
             } else {
-                recv_buffer.setSize(recv_size);
-                this->recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
+                buf.setSize(n);
+                this->recv_out(0, buf, Drv::ByteStreamStatus::OP_OK);
+                printk("SCHED BLE rx=%u ble_ms=%u usb_ms=%u\n",
+                       n, m_last_rx_ble_ms, m_last_rx_usb_ms);
             }
-
             if (this->m_rx_throttled_ble) {
                 uart_irq_rx_enable(this->m_ble_dev);
                 this->m_rx_throttled_ble = false;
             }
-
-        } else {
-            
-            U32 recv_size = ring_buf_get(&this->m_ring_buf_usb, recv_buffer.getData(), recv_buffer.getSize());
-            if (recv_size == 0) {
-                // no data received, deallocate buffer
-                this->deallocate_out(0, recv_buffer);
+        }
+    
+        // --- USB ring ---
+        {
+            Fw::Buffer buf = this->allocate_out(0, SERIAL_BUFFER_SIZE);
+            U32 n = ring_buf_get(&this->m_ring_buf_usb, buf.getData(), buf.getSize());
+            if (n == 0) {
+                this->deallocate_out(0, buf);
             } else {
-                recv_buffer.setSize(recv_size);
-                this->recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
+                buf.setSize(n);
+                this->recv_out(0, buf, Drv::ByteStreamStatus::OP_OK);
+                printk("SCHED USB rx=%u ble_ms=%u usb_ms=%u\n",
+                       n, m_last_rx_ble_ms, m_last_rx_usb_ms);
             }
-
             if (this->m_rx_throttled_usb) {
                 uart_irq_rx_enable(this->m_usb_dev);
                 this->m_rx_throttled_usb = false;
@@ -198,6 +198,11 @@ namespace Zephyr {
 
     Drv::ByteStreamStatus ZephyrUartDriver :: send_handler(const FwIndexType portNum, Fw::Buffer &sendBuffer) {
         ActiveUart active_uart = this->m_last_rx_ble_ms >= this->m_last_rx_usb_ms ? ActiveUart::BLE : ActiveUart::USB;
+        printk("SEND act=%s ble_ms=%u usb_ms=%u sz=%u\n",
+            active_uart == ActiveUart::BLE ? "BLE" : "USB",
+            m_last_rx_ble_ms, m_last_rx_usb_ms,
+            static_cast<unsigned>(sendBuffer.getSize()));
+        
         if (active_uart == ActiveUart::BLE) {
             for (U32 i = 0; i < sendBuffer.getSize(); i++) {
                 uart_poll_out(this->m_ble_dev, sendBuffer.getData()[i]);
