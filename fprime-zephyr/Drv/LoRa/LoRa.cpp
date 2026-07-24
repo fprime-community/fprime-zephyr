@@ -287,6 +287,12 @@ void LoRa ::setTransmitState(TransmitState state) {
             Fw::Success comStatus = Fw::Success::SUCCESS;
             this->comStatusOut_out(0, comStatus);
         }
+        if (!this->m_lora_ever_on) {
+            this->m_lora_ever_on = true;
+            if (this->isConnected_loraEverOn_OutputPort(0)) {
+                this->loraEverOn_out(0);
+            }
+        }
     }
     // Want to disable
     else {
