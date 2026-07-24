@@ -65,8 +65,8 @@ LoRa::Status LoRa ::start(const struct device* lora_device, const TransmitState&
 
         if (!this->m_lora_ever_on) {
             this->m_lora_ever_on = true;
-            if (this->isConnected_loraEverOn_OutputPort(0)) {
-                this->loraEverOn_out(0);
+            if (this->isConnected_loraFirstStart_OutputPort(0)) {
+                this->loraFirstStart_out(0);
             }
         }
     }
@@ -296,8 +296,8 @@ void LoRa ::setTransmitState(TransmitState state) {
         }
         if (!this->m_lora_ever_on) {
             this->m_lora_ever_on = true;
-            if (this->isConnected_loraEverOn_OutputPort(0)) {
-                this->loraEverOn_out(0);
+            if (this->isConnected_loraFirstStart_OutputPort(0)) {
+                this->loraFirstStart_out(0);
             }
         }
     }
