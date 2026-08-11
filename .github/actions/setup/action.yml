@@ -19,6 +19,23 @@ runs:
         echo "CI Tools Path: $CI_TOOLS_PATH"
         pip install "${CI_TOOLS_PATH}"
       shell: bash
+    # Cache the Zephyr SDK and the west-managed repositories so the large
+    # downloads performed by "west update" / "west sdk install" only happen
+    # when the manifest changes. On a cache hit "west update" is a fast
+    # sync and "west sdk install" skips the already-installed SDK.
+    - name: "Cache Zephyr SDK and west modules"
+      if: ${{ inputs.stage == 'all' || inputs.stage == 'build' }}
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/zephyr-sdk-*
+          ${{ inputs.workspace_directory }}/zephyr
+          ${{ inputs.workspace_directory }}/modules
+          ${{ inputs.workspace_directory }}/tools
+          ${{ inputs.workspace_directory }}/bootloader
+        key: zephyr-workspace-${{ runner.os }}-${{ hashFiles('**/west.yml') }}
+        restore-keys: |
+          zephyr-workspace-${{ runner.os }}-
     - name: "Zephyr Setup"
       if: ${{ inputs.stage == 'all' || inputs.stage == 'build' }}
       run: |
