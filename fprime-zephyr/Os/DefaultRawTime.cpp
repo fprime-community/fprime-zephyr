@@ -15,7 +15,7 @@ namespace Os {
 RawTimeInterface *RawTimeInterface::getDelegate(RawTimeHandleStorage& aligned_new_memory,
                                                 const RawTimeInterface* to_copy,
                                                 RawTimeSource source) {
-    (void)source;  // Zephyr implementation only supports default timer source
+    FW_ASSERT(RawTimeSource::RAWTIME_DEFAULT == source, source);
     return Os::Delegate::makeDelegate<RawTimeInterface, Os::Zephyr::RawTime::ZephyrRawTime, RawTimeHandleStorage>(
             aligned_new_memory, to_copy
     );
