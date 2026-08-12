@@ -23,8 +23,28 @@ runs:
     # downloads performed by "west update" / "west sdk install" only happen
     # when the manifest changes. On a cache hit "west update" is a fast
     # sync and "west sdk install" skips the already-installed SDK.
+    #
+    # Caches saved from pull_request runs are scoped to that PR's merge ref,
+    # invisible to every other PR, and count against the consuming
+    # repository's shared 10 GB Actions cache quota — a single ~3 GB save
+    # per PR evicts everything else. PR runs therefore restore-only; the
+    # cache is saved from default-branch runs (schedule / push / dispatch),
+    # which every PR can read via restore-keys.
+    - name: "Cache Zephyr SDK and west modules (restore only)"
+      if: ${{ (inputs.stage == 'all' || inputs.stage == 'build') && github.event_name == 'pull_request' }}
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          ~/zephyr-sdk-*
+          ${{ inputs.workspace_directory }}/zephyr
+          ${{ inputs.workspace_directory }}/modules
+          ${{ inputs.workspace_directory }}/tools
+          ${{ inputs.workspace_directory }}/bootloader
+        key: zephyr-workspace-${{ runner.os }}-${{ hashFiles('**/west.yml') }}
+        restore-keys: |
+          zephyr-workspace-${{ runner.os }}-
     - name: "Cache Zephyr SDK and west modules"
-      if: ${{ inputs.stage == 'all' || inputs.stage == 'build' }}
+      if: ${{ (inputs.stage == 'all' || inputs.stage == 'build') && github.event_name != 'pull_request' }}
       uses: actions/cache@v4
       with:
         path: |
