@@ -136,10 +136,10 @@ public:
     // Spinlock-backed atomics are always "lock free" from the caller's view
     // (no OS mutex); required by Os::Generic::AtomicQueue asserts.
     bool is_lock_free() const noexcept {
-        return true;
+        return false;
     }
 
-    static constexpr bool is_always_lock_free = true;
+    static constexpr bool is_always_lock_free = false;
 
     T operator++() noexcept {
         return fetch_add(1) + 1;
