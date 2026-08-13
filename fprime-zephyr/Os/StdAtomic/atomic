@@ -133,13 +133,17 @@ public:
         return old;
     }
 
-    // Spinlock-backed atomics are always "lock free" from the caller's view
-    // (no OS mutex); required by Os::Generic::AtomicQueue asserts.
+    // k_spin_lock says "the calling thread is guaranteed not to be suspended or
+    // interrupted on its current CPU until it calls k_spin_unlock()"
+    //
+    // This implies that k_spin_lock on Zephyr meets the lock free guarantee as
+    // forward process can be made.
     bool is_lock_free() const noexcept {
-        return false;
+        return true;
     }
 
-    static constexpr bool is_always_lock_free = false;
+    // See is_lock_free() for an explaination.
+    static constexpr bool is_always_lock_free = true;
 
     T operator++() noexcept {
         return fetch_add(1) + 1;
