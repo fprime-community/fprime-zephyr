@@ -77,7 +77,6 @@ U16 ZephyrADCDriver::readADCValueRaw(){
     int status = adc_read_dt(this->m_adc_dev_config, &sequence);
     
     if (status != 0) {
-        FW_ASSERT(0, status, 0);
         return 0;
     }
 
