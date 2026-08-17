@@ -15,6 +15,7 @@ register_fprime_config(
         Os_RawTime_Zephyr
         Os_StringFormat_Zephyr_snprintk
         Fw_StringScan_sscanf
+        Fw_AssertHook_fputs
         Os_Console_Zephyr
         Os_File_Zephyr
         # Can remain stubs for now
