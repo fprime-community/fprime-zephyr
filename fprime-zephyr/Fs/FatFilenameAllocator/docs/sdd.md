@@ -183,7 +183,7 @@ does not export. A `static_assert` on `FF_DEFINED` pins the FatFs revision this 
 so a Zephyr upgrade that changes FatFs fails the build until the size is re-verified and the assertion updated.
 
 The pool is constant-initialized static storage: there is no heap use, no `new`, and no startup constructor. A
-`static_assert` on the Zephyr pool type and a `constexpr` pool in the unit test fail the build if a member stops being
+`static_assert`s on the pool type in the Zephyr build and in the unit test fail the build if a member stops being
 constant-initializable.
 
 ### Upgrading a deployment that already uses HEAP mode
