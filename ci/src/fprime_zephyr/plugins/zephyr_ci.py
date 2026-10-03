@@ -8,6 +8,7 @@ from pathlib import Path
 import serial
 
 import fprime_gds.plugin.definitions
+from fprime_zephyr.touch import touch
 from fprime_ci.ci import Ci
 from fprime_ci.plugin.definitions import plugin
 from fprime_ci.utilities import IOLogger
@@ -26,6 +27,8 @@ class ZephyrCiBase(Ci, ABC):
         """
         FLASH_COMMAND = "flash-command"
         FLASH_COMMAND__ATTRS__ = (False, list)
+        TOUCH_BAUD = "touch-baud"
+        TOUCH_BAUD__ATTRS__ = (False, int)
 
     def __init__(self, port:str):
         """ Initialize basic components """
@@ -76,6 +79,9 @@ class ZephyrCiBase(Ci, ABC):
         Returns:
             context optionally augmented with plugin-specific preload data
         """
+        touch_baud = context.get(self.Keys.TOUCH_BAUD, None)
+        if touch_baud is not None and Path(self.port).exists():
+            touch(self.port, touch_baud)
         flash_command = context.get(self.Keys.FLASH_COMMAND, None)
         process, _, (_, _) = self.subprocess(
             flash_command

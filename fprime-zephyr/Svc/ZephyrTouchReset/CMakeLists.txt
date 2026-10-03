@@ -14,6 +14,7 @@ register_fprime_library(
     AUTOCODER_INPUTS
         "${CMAKE_CURRENT_LIST_DIR}/ZephyrTouchReset.fpp"
     SOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/BootloaderEntry.cpp"
         "${CMAKE_CURRENT_LIST_DIR}/ZephyrTouchReset.cpp"
     DEPENDS
         kernel

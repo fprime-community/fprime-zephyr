@@ -114,3 +114,16 @@ In order to build with F Prime Zephyr, users must specify the `BOARD` environmen
 fprime-util generate -DBOARD=rpi_pico2/rp2350a/m33 zephyr
 fprime-util build zephyr
 ```
+
+## Flashing Over USB (Touch Reset)
+
+Deployments may instantiate the opt-in `Zephyr.ZephyrTouchReset` component so that the host can reboot the board into its
+bootloader by opening the USB CDC ACM port at a "touch" baud rate (1200 for RP2040/RP2350, SAMD, and nRF52 UF2 boards;
+134 for Teensy 4.x). The `fprime-zephyr-flash` tool from the `ci` package then touches the port and flashes the image:
+
+```bash
+pip install ./lib/fprime-zephyr/ci
+fprime-zephyr-flash --port /dev/ttyACM0 build-fprime-automatic-zephyr/zephyr/zephyr.uf2
+```
+
+See the [ZephyrTouchReset SDD](fprime-zephyr/Svc/ZephyrTouchReset/docs/sdd.md) for set-up and supported platforms.
