@@ -76,6 +76,8 @@ void ZephyrTouchReset ::check() {
         // printk keeps the system work queue stack small (Fw::Logger formats into a stack Fw::String)
         printk("[TouchReset] %" PRIu32 " baud touch, entering bootloader: %s\n", this->m_touchBaud, Bootloader::METHOD);
         this->m_entry();
+        // Entry failed: wait for the baud rate to change again rather than retrying every poll
+        this->m_armed = false;
     }
 }
 

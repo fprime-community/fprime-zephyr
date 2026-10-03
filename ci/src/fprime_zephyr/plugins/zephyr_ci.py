@@ -5,11 +5,10 @@ This module allows Zephyr to build as part of the fprime.ci package
 from abc import abstractmethod, ABC
 import logging
 from pathlib import Path
-import time
 import serial
 
 import fprime_gds.plugin.definitions
-from fprime_zephyr.touch import touch
+from fprime_zephyr.touch import touch, wait_for
 from fprime_ci.ci import Ci
 from fprime_ci.plugin.definitions import plugin
 from fprime_ci.utilities import IOLogger
@@ -70,7 +69,8 @@ class ZephyrCiBase(Ci, ABC):
         power-on. This is the most convenient place to copy files via an active program like scp  This step runs
         directly after power-on.
 
-        The default implementation does nothing.
+        The default implementation touches the console port at `touch-baud` (when set) and waits up to 5 s for it to
+        disappear, runs `flash-command`, then waits for the console port to reappear.
 
         Note: platforms with long boot times should confirm a successful boot code before attempting load operations.
 
@@ -83,10 +83,9 @@ class ZephyrCiBase(Ci, ABC):
         touch_baud = context.get(self.Keys.TOUCH_BAUD, None)
         if touch_baud is not None and Path(self.port).exists():
             touch(self.port, touch_baud)
-            # Give the board time to drop the application port before flashing
-            deadline = time.monotonic() + 5.0
-            while Path(self.port).exists() and time.monotonic() < deadline:
-                time.sleep(0.1)
+            if not wait_for(lambda: not Path(self.port).exists(), timeout=5.0, interval=0.1):
+                LOGGER.warning("%s still present 5 s after the %s baud touch: is ZephyrTouchReset configured?",
+                               self.port, touch_baud)
         flash_command = context.get(self.Keys.FLASH_COMMAND, None)
         process, _, (_, _) = self.subprocess(
             flash_command

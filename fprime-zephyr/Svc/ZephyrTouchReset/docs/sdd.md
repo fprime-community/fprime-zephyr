@@ -1,8 +1,8 @@
 # Zephyr::ZephyrTouchReset
 
-`Zephyr::ZephyrTouchReset` implements the baud rate "touch" reset used by Arduino-style tooling. When the host opens the
-monitored UART (typically the USB CDC ACM port) at the touch baud rate, the board reboots into its bootloader, so new
-software can be flashed without pressing any buttons.
+`Zephyr::ZephyrTouchReset` implements the baud rate "touch" reset used by Arduino-style tooling. When the host switches
+the monitored UART (typically the USB CDC ACM port) to the touch baud rate, for example by opening it at that rate, the
+board reboots into its bootloader, so new software can be flashed without pressing any buttons.
 
 The component is opt-in: projects that do not instantiate it are unaffected. It has no ports. It polls the UART line
 coding from the Zephyr system work queue, so the touch keeps working when F Prime threads or rate groups are starved or
@@ -22,10 +22,19 @@ priority (`CONFIG_SYSTEM_WORKQUEUE_PRIORITY`, default -1), above the preemptible
 no other work item blocking that queue.
 
 The bootloader is entered when the baud rate *changes* to the touch baud rate: a reading of the touch baud rate takes
-effect only after a different baud rate has been observed since `configure()`. A host that is already at the touch
-baud rate when the board boots, or a touch baud rate equal to the USB CDC ACM default line coding (115200), therefore
-does not cause a reboot loop. The bootloader message is printed with `printk` to keep the system work queue stack use
-small.
+effect only after a different baud rate has been observed since `configure()`. This only ignores a touch baud rate the
+device already reports at its first poll. It does not stop a host from re-applying the touch baud rate after the board
+re-enumerates: the USB CDC ACM line coding starts at 115200, the Linux `cdc-acm` driver sets 9600 when the device
+enumerates, and Linux re-sends the port's saved baud rate on every open. So:
+
+- Do not choose a touch baud rate that ground, CI, or terminal tools use to open the port.
+- After a touch made with a tool that leaves the port at the touch baud rate (such as `stty`), reset the host port, for
+  example `stty -F /dev/ttyACM0 115200`, before tools that do not set a baud rate (such as `cat`) open it again.
+
+Like the RP2040 (pico-sdk) and Teensy conventions, the trigger is the baud rate alone; DTR is not checked, so a touch
+that leaves DTR asserted (e.g. `stty -hupcl`) still works. If the entry function returns, for example because
+`bootmode_set()` fails, the component waits for another change to the touch baud rate before retrying. The bootloader
+message is printed with `printk` to keep the system work queue stack use small.
 
 ## Supported Platforms
 
@@ -38,7 +47,7 @@ configuration (see `BootloaderEntry.cpp`):
 | Teensy 4.0 / 4.1 / MicroMod | `CONFIG_BOARD_TEENSY40`, `CONFIG_BOARD_TEENSY41`, `CONFIG_BOARD_TEENSYMM` | 134 | HalfKay bootloader via `bkpt #251` |
 | nRF52 with the Adafruit UF2 bootloader | `CONFIG_SOC_SERIES_NRF52X` and `CONFIG_BUILD_OUTPUT_UF2` | 1200 | `GPREGRET = 0x57` (UF2 reset magic), then reset |
 | SAMD21 / SAMD51 with a BOSSA bootloader | `CONFIG_BOOTLOADER_BOSSA_ARDUINO` or `CONFIG_BOOTLOADER_BOSSA_ADAFRUIT_UF2` | 1200 | Double-tap magic in the last word of SRAM, then reset |
-| Any other board | `CONFIG_RETENTION_BOOT_MODE` | 1200 | `bootmode_set(BOOT_MODE_TYPE_BOOTLOADER)`, then warm reboot |
+| Any other board | `CONFIG_RETENTION_BOOT_MODE` | 1200 | `bootmode_set(BOOT_MODE_TYPE_BOOTLOADER)`, then warm reboot (no reboot if `bootmode_set()` fails) |
 | Any other board | (fallback) | 1200 | Warm reboot |
 
 The selected baud rate and method are available as `Zephyr::Bootloader::TOUCH_BAUD` and `Zephyr::Bootloader::METHOD`.
@@ -95,18 +104,19 @@ fprime-zephyr-flash --method bossac --port /dev/ttyACM0 build-fprime-automatic-z
 ```
 
 When `--volume` is omitted, the UF2 method only accepts a volume that appears after the touch, and fails when several
-appear. `--method teensy` runs [`teensy_loader_cli`](https://github.com/PaulStoffregen/teensy_loader_cli) and
+appear; without `--port` (board already in its bootloader) it accepts an already-mounted volume. The bossac method fails
+when the touched port does not go away. `--method teensy` runs [`teensy_loader_cli`](https://github.com/PaulStoffregen/teensy_loader_cli) and
 `--method bossac` runs [`bossac`](https://github.com/shumatech/BOSSA): the first binary of that name on `PATH` is used,
 so install them from these upstreams or the OS package manager.
 
-The `zephyr-ci` CI plugins accept an optional `touch-baud` key, which touches the console port and waits for it to
-disappear before running `flash-command`.
+The `zephyr-ci` CI plugins accept an optional `touch-baud` key, which touches the console port and waits up to 5 s for it
+to disappear before running `flash-command`. After the timeout, a warning is logged and flashing proceeds.
 
 ## Requirements
 
 | Name | Description | Validation |
 |---|---|---|
-| ZephyrTouchReset-001 | The component shall reboot into the bootloader when the monitored UART baud rate equals the configured touch baud rate. | Hardware test |
+| ZephyrTouchReset-001 | The component shall reboot into the bootloader when the monitored UART baud rate changes to the configured touch baud rate (see ZephyrTouchReset-006). | Hardware test |
 | ZephyrTouchReset-002 | The component shall take no action when unconfigured or when the monitored device is not ready. | Inspection |
 | ZephyrTouchReset-003 | The component shall default the touch baud rate and bootloader entry method to those of the platform being built. | Inspection, build |
 | ZephyrTouchReset-004 | The component shall monitor the UART independently of F Prime threads and rate groups. | Inspection |

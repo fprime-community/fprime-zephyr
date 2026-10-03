@@ -39,7 +39,8 @@ class ZephyrTouchReset final : public ZephyrTouchResetComponentBase {
     //! Monitoring runs on the Zephyr system work queue so that it keeps working when F Prime threads are starved.
     //! Defaults select the touch baud rate and bootloader entry method for the SoC / board being built. The
     //! bootloader is entered only when the baud rate changes to the touch baud rate after a different baud rate was
-    //! observed. Calling configure() again stops any previous monitoring first.
+    //! observed. If the entry function returns, another change to the touch baud rate is needed to retry. Calling
+    //! configure() again stops any previous monitoring first.
     //!
     //! \return SUCCESS when monitoring started, FAILURE (monitoring stopped) when the device is not ready or its baud
     //! rate cannot be read through uart_line_ctrl_get (e.g. CONFIG_UART_LINE_CTRL is disabled)

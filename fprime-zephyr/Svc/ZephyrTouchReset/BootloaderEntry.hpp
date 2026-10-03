@@ -11,7 +11,7 @@
 namespace Zephyr {
 namespace Bootloader {
 
-//! Signature of a function rebooting the board into its bootloader. Must not return.
+//! Signature of a function rebooting the board into its bootloader. Returns only when entry failed.
 using EntryFunction = void (*)();
 
 //! Baud rate the platform's host tooling uses to request the bootloader (134 on Teensy, 1200 elsewhere)
@@ -20,7 +20,8 @@ extern const std::uint32_t TOUCH_BAUD;
 //! Human-readable name of the bootloader entry method selected for this build
 extern const char* const METHOD;
 
-//! Reboot into the bootloader using the method selected for this build's SoC / board. Does not return.
+//! Reboot into the bootloader using the method selected for this build's SoC / board. Returns only when
+//! bootmode_set() fails on the retention boot mode path.
 //!
 //! - RP2040 / RP2350: boot ROM USB (UF2 BOOTSEL) bootloader via `reset_usb_boot`
 //! - Teensy 4.x: HalfKay bootloader via `bkpt #251`

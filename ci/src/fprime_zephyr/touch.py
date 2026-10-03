@@ -72,7 +72,14 @@ def _subdirectories(path: Path) -> List[Path]:
         children = list(path.iterdir())
     except OSError:
         return []
-    return [child for child in children if not child.is_symlink() and child.is_dir()]
+    subdirectories = []
+    for child in children:
+        try:
+            if not child.is_symlink() and child.is_dir():
+                subdirectories.append(child)
+        except OSError:
+            continue
+    return subdirectories
 
 
 def _is_uf2_volume(path: Path) -> bool:
@@ -173,8 +180,9 @@ def flash_bossac(image: Path, bootloader_port: str, timeout: float, touched_port
 
     When the bootloader reuses the touched port, wait for the application's port to go away first.
     """
-    if touched_port == bootloader_port:
-        wait_for(lambda: not Path(bootloader_port).exists(), timeout)
+    if touched_port == bootloader_port and not wait_for(lambda: not Path(bootloader_port).exists(), timeout):
+        raise TouchFlashError(f"Port {bootloader_port} did not go away within {timeout}s after the touch: "
+                              "is ZephyrTouchReset configured in the running software?")
     if not wait_for(lambda: Path(bootloader_port).exists(), timeout):
         raise TouchFlashError(f"Bootloader port {bootloader_port} did not appear within {timeout}s")
     run_tool(["bossac", "-p", bootloader_port, "-e", "-w", "-v", "-R", str(image)], timeout)
@@ -185,17 +193,20 @@ def touch_and_flash(args: argparse.Namespace):
     image = Path(args.image)
     if not image.is_file():
         raise TouchFlashError(f"No such image: {image}")
-    if args.method not in METHODS:
-        raise TouchFlashError(f"No flashing implementation for method {args.method}")
-    existing = find_uf2_volumes() if args.method == "uf2" and not args.volume else []
+    # Without a touch the board is already in its bootloader, so its mounted UF2 volume is not stale
+    existing: List[Path] = []
     if args.port is not None:
+        if args.method == "uf2" and not args.volume:
+            existing = find_uf2_volumes()
         touch(args.port, args.touch_baud if args.touch_baud is not None else METHODS[args.method])
     if args.method == "uf2":
         flash_uf2(image, Path(args.volume) if args.volume else None, args.timeout, existing)
     elif args.method == "teensy":
         flash_teensy(image, args.mcu, args.timeout)
-    else:
+    elif args.method == "bossac":
         flash_bossac(image, args.bootloader_port or args.port, args.timeout, args.port)
+    else:
+        raise TouchFlashError(f"No flashing implementation for method {args.method}")
 
 
 def parse_args(arguments: Optional[List[str]] = None) -> argparse.Namespace:

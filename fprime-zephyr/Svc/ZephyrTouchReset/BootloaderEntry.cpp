@@ -93,7 +93,8 @@ const char* const METHOD = "retention boot mode";
 void enter() {
     const int status = bootmode_set(BOOT_MODE_TYPE_BOOTLOADER);
     if (status != 0) {
-        printk("[TouchReset] bootmode_set failed (%d), rebooting into the application\n", status);
+        printk("[TouchReset] bootmode_set failed (%d), not rebooting\n", status);
+        return;
     }
     sys_reboot(SYS_REBOOT_WARM);
 }

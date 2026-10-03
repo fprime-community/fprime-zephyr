@@ -47,6 +47,7 @@ def test_default_touch_baud(tmp_path, method, baud):
     image.write_bytes(b"")
     args = touch.parse_args([str(image), "--method", method, "--port", "/dev/ttyACM0"])
     with mock.patch.object(touch, "touch") as touch_mock, \
+            mock.patch.object(touch, "find_uf2_volumes", return_value=[]), \
             mock.patch.object(touch, "flash_uf2"), \
             mock.patch.object(touch, "flash_teensy"), \
             mock.patch.object(touch, "flash_bossac"):
@@ -124,10 +125,34 @@ def test_flash_uf2_snapshots_volumes_before_touch(tmp_path):
     image = tmp_path / "zephyr.uf2"
     image.write_bytes(b"UF2\n")
     stale = tmp_path / "STALE"
-    with mock.patch.object(touch, "find_uf2_volumes", return_value=[stale]), \
-            mock.patch.object(touch, "touch"), mock.patch.object(touch, "flash_uf2") as flash_mock:
+    calls = mock.Mock()
+    calls.find_uf2_volumes.return_value = [stale]
+    with mock.patch.object(touch, "find_uf2_volumes", calls.find_uf2_volumes), \
+            mock.patch.object(touch, "touch", calls.touch), mock.patch.object(touch, "flash_uf2", calls.flash_uf2):
         touch.touch_and_flash(touch.parse_args([str(image), "--port", "/dev/ttyACM0"]))
-    assert flash_mock.call_args.args[3] == [stale]
+    assert [call[0] for call in calls.mock_calls] == ["find_uf2_volumes", "touch", "flash_uf2"]
+    assert calls.flash_uf2.call_args.args[3] == [stale]
+
+
+def test_flash_uf2_without_port_accepts_mounted_volume(tmp_path):
+    volume = make_uf2_volume(tmp_path / "RPI-RP2")
+    image = tmp_path / "zephyr.uf2"
+    image.write_bytes(b"UF2\n")
+    find = touch.find_uf2_volumes
+    with mock.patch.object(touch, "find_uf2_volumes", lambda: find([str(tmp_path)])), \
+            mock.patch.object(touch, "touch") as touch_mock:
+        touch.touch_and_flash(touch.parse_args([str(image), "--timeout", "0.1"]))
+    touch_mock.assert_not_called()
+    assert (volume / "zephyr.uf2").read_bytes() == b"UF2\n"
+
+
+def test_flash_bossac_fails_when_port_stays(tmp_path):
+    port = tmp_path / "ttyACM0"
+    port.touch()
+    with mock.patch.object(touch, "run_tool") as tool_mock:
+        with pytest.raises(touch.TouchFlashError, match="did not go away"):
+            touch.flash_bossac(tmp_path / "zephyr.bin", str(port), 0.1, str(port))
+    tool_mock.assert_not_called()
 
 
 def test_flash_bossac_waits_for_port_cycle(tmp_path):
