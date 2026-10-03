@@ -22,6 +22,8 @@ class ZephyrSharedMultiHeapAllocator : public Fw::MemAllocator {
   public:
     //! Maximum regions in the shared pool, across all attributes, including regions added by board/SoC code
     static constexpr FwSizeType MAX_REGIONS = MAX_MULTI_HEAPS;
+    //! Smallest accepted region: covers the sys_heap header, bucket array, and end marker with room for allocations
+    static constexpr FwSizeType MIN_REGION_SIZE = 256;
 
     enum Status {
         OP_OK,            //!< Region added

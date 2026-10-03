@@ -6,18 +6,64 @@
 #include <zephyr/kernel.h>
 #include <Fw/Types/Assert.hpp>
 #include <cerrno>
-#include "fprime-zephyr/Fw/Types/ZephyrHeapRegion.hpp"
+#include <cstdint>
+#include <limits>
 
 namespace Zephyr {
 
 namespace {
+//! sys_heap chunk unit and maximum chunk count (see zephyr/lib/heap/heap.h)
+constexpr FwSizeType CHUNK_UNIT = 8;
+#if defined(CONFIG_SYS_HEAP_SMALL_ONLY)
+constexpr FwSizeType MAX_CHUNKS = 0x7fffU;
+#else
+constexpr FwSizeType MAX_CHUNKS = 0x7fffffffU;
+#endif
+
+//! Address range of a region already added to the pool
+struct Range {
+    uintptr_t start;
+    uintptr_t end;
+};
+
+//! True when region can be passed to sys_heap_init without tripping its size assertions
+bool isValid(const Fw::ByteArray& region) {
+    return (region.bytes != nullptr) and (region.size >= ZephyrSharedMultiHeapAllocator::MIN_REGION_SIZE) and
+           (region.size <= std::numeric_limits<size_t>::max()) and ((region.size / CHUNK_UNIT) <= MAX_CHUNKS) and
+           // reinterpret_cast: address arithmetic on unrelated regions needs integers, not pointer comparisons
+           (reinterpret_cast<uintptr_t>(region.bytes) <= (std::numeric_limits<uintptr_t>::max() - region.size));
+}
+
+//! Range covered by a valid region
+Range toRange(const Fw::ByteArray& region) {
+    // reinterpret_cast: ranges are compared as integers; shared_multi_heap_region::addr is also a uintptr_t
+    const uintptr_t start = reinterpret_cast<uintptr_t>(region.bytes);
+    return Range{start, start + static_cast<uintptr_t>(region.size)};
+}
+
+//! True when an allocate() request can be passed to Zephyr unchanged; asserts alignment is a power of two
+bool isAllocatable(const FwSizeType size, const FwSizeType alignment) {
+    FW_ASSERT((alignment & (alignment - 1)) == 0, static_cast<FwAssertArgType>(alignment));
+    return (size > 0) and (size <= std::numeric_limits<size_t>::max()) and
+           (alignment <= std::numeric_limits<size_t>::max());
+}
+
 //! Serializes access to the system-wide shared_multi_heap pool across allocator instances
 k_spinlock s_sharedLock;
 //! True once ensurePoolReady() has confirmed the pool is initialized (by it or, via -EALREADY, by board/SoC code)
 bool s_poolReady = false;
 //! Regions added through addRegion(); Zephyr does not expose regions added by board/SoC code
-HeapRegion::Range s_ranges[ZephyrSharedMultiHeapAllocator::MAX_REGIONS];
+Range s_ranges[ZephyrSharedMultiHeapAllocator::MAX_REGIONS];
 FwSizeType s_regionCount = 0;
+
+//! True when region intersects a region already added through addRegion(); call with s_sharedLock held
+bool overlapsAdded(const Range& region) {
+    bool overlaps = false;
+    for (FwSizeType i = 0; (i < s_regionCount) and (not overlaps); i++) {
+        overlaps = (region.start < s_ranges[i].end) and (s_ranges[i].start < region.end);
+    }
+    return overlaps;
+}
 
 //! Initialize the pool if needed so its choice function is set; call with s_sharedLock held
 void ensurePoolReady() {
@@ -40,10 +86,10 @@ ZephyrSharedMultiHeapAllocator::Status ZephyrSharedMultiHeapAllocator::addRegion
     if (attr >= MAX_SHARED_MULTI_HEAP_ATTR) {
         return INVALID_ATTR;
     }
-    if (not HeapRegion::isValid(region)) {
+    if (not isValid(region)) {
         return INVALID_REGION;
     }
-    const HeapRegion::Range range = HeapRegion::toRange(region);
+    const Range range = toRange(region);
     shared_multi_heap_region smhRegion = {};
     smhRegion.attr = static_cast<uint32_t>(attr);
     smhRegion.addr = range.start;
@@ -55,7 +101,7 @@ ZephyrSharedMultiHeapAllocator::Status ZephyrSharedMultiHeapAllocator::addRegion
     // Zephyr checks only the per-attribute count; the pool's heap array is shared by all attributes
     if (s_regionCount >= MAX_REGIONS) {
         status = NO_MORE_REGIONS;
-    } else if (HeapRegion::overlapsAny(range, s_ranges, s_regionCount)) {
+    } else if (overlapsAdded(range)) {
         status = INVALID_REGION;
     } else {
         ensurePoolReady();
@@ -81,7 +127,7 @@ void* ZephyrSharedMultiHeapAllocator::allocate(const FwEnumStoreType identifier,
     (void)identifier;
     recoverable = false;
     void* memory = nullptr;
-    if (HeapRegion::isAllocatable(size, alignment)) {
+    if (isAllocatable(size, alignment)) {
         k_spinlock_key_t key = k_spin_lock(&s_sharedLock);
         ensurePoolReady();
         memory = shared_multi_heap_aligned_alloc(m_attr, static_cast<size_t>(alignment), static_cast<size_t>(size));
