@@ -107,7 +107,7 @@ class LoRa final : public LoRaComponentBase {
     Zephyr::TransmitState m_transmit_enabled;  //!< Transmit enabled state
     Os::Mutex m_mutex;  //!< Mutex for thread safety
     bool m_cw_active = false;  //!< Continuous wave in progress
-    I64 m_cw_end_ms = 0;       //!< Uptime (ms) after which receive is re-armed
+    Fw::Time m_cw_end;         //!< Time after which receive is re-armed
 
     FwSizeType m_bytes_sent = 0;     //!< Total bytes sent telemetry
     FwSizeType m_bytes_received = 0; //!< Total bytes received telemetry

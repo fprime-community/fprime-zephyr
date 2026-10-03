@@ -7,11 +7,10 @@
 #include "fprime-zephyr/Drv/LoRa/LoRa.hpp"
 #include "zephyr-config/LoRaCfg.hpp"
 #include <Fw/Logger/Logger.hpp>
-#include <zephyr/kernel.h>
 namespace Zephyr {
 
 // Margin past a continuous wave's duration for the driver to release the modem
-static constexpr I64 CW_TEARDOWN_MARGIN_MS = 250;
+static constexpr U32 CW_TEARDOWN_MARGIN_US = 250000;
 
 // Base configuration for the LoRa modem
 struct lora_modem_config BASE_CONFIG = {
@@ -201,7 +200,8 @@ void LoRa ::CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U16 seco
             const int cw_status =
                 lora_test_cw(this->m_lora_device, LoRaConfig::FREQUENCY, LoRaConfig::TX_POWER, seconds);
             if (cw_status == 0) {
-                this->m_cw_end_ms = k_uptime_get() + static_cast<I64>(seconds) * 1000 + CW_TEARDOWN_MARGIN_MS;
+                const Fw::Time now = this->getTime();
+                this->m_cw_end = Fw::Time::add(now, Fw::Time(now.getTimeBase(), seconds, CW_TEARDOWN_MARGIN_US));
                 this->m_cw_active = true;
             } else {
                 this->log_WARNING_HI_SendFailed(static_cast<I32>(cw_status));
@@ -219,7 +219,7 @@ void LoRa ::CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U16 seco
 }
 
 bool LoRa ::updateContinuousWave() {
-    if (this->m_cw_active && (k_uptime_get() >= this->m_cw_end_ms)) {
+    if (this->m_cw_active && (Fw::Time::compare(this->getTime(), this->m_cw_end) != Fw::TimeComparison::LT)) {
         this->m_cw_active = false;
         if (this->enableRx() != Status::SUCCESS) {
             this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
