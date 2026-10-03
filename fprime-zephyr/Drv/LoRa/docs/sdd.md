@@ -18,6 +18,7 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 | LORA-06 | The LoRa component shall have a continuous wave command | Unit-Test |
 | LORA-07 | The LoRa component shall wrap the Zephyr LoRa driver | Unit-Test |
 | LORA-08 | The LoRa component shall configure the Zephyr LoRa driver for tranmit only when sending data | Unit-Test |
+| LORA-09 | The LoRa component shall provide a command to change the carrier frequency, rejecting frequencies outside the configured MIN_FREQUENCY to MAX_FREQUENCY range | Inspection |
 
 
 ## Port Interfaces
@@ -32,7 +33,9 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 
 | Name | Description |
 |------|---|
-| FREQUENCY   | Frequency of the radio transmission / receive |
+| FREQUENCY   | Frequency of the radio transmission / receive at boot |
+| MIN_FREQUENCY | Lowest frequency accepted by SET_FREQ |
+| MAX_FREQUENCY | Highest frequency accepted by SET_FREQ. Defaults to FREQUENCY, as does MIN_FREQUENCY, which disables retuning |
 | BANDWIDTH   | Number of parity bits sent             |
 | TX_POWER    | Transmission power of the raio |
 | PREAMBLE    | Preamble length in bytes |
@@ -41,7 +44,8 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 
 | Name | Description |
 |------|---|
-| CONTINUOUS_WAVE | Start a continuous wave for a supplied duration and respond immediately. Receive is re-armed by `run` once the wave ends; transmissions are dropped and further `CONTINUOUS_WAVE` commands return BUSY until then |
+| CONTINUOUS_WAVE | Start a continuous wave for a supplied duration and respond immediately. Receive is re-armed by `run` once the wave ends; transmissions are dropped and further `CONTINUOUS_WAVE` commands return BUSY until then. The wave is transmitted at the current frequency |
+| SET_FREQ | Retune receive, transmit, and continuous wave to the supplied frequency in Hz. Returns VALIDATION_ERROR outside MIN_FREQUENCY to MAX_FREQUENCY, BUSY during a continuous wave, and EXECUTION_ERROR (keeping the previous frequency) if the radio rejects it. Not persisted: the radio returns to FREQUENCY on reboot. On SX126x radios, image calibration is not rerun for a different band |
 
 ## Parameters
 
@@ -64,3 +68,5 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 | ConfigurationFailed | Failed to configure the LoRa radio |
 | SendFailed          | Failed to send data out LoRa radio |
 | AllocationFailed    | Failed to allocate buffer for received data|
+| FrequencyOutOfRange | SET_FREQ frequency outside MIN_FREQUENCY to MAX_FREQUENCY |
+| FrequencySet        | Carrier frequency changed by SET_FREQ |

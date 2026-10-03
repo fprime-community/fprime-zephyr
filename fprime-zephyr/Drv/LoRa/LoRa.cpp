@@ -12,7 +12,7 @@ namespace Zephyr {
 // Margin past a continuous wave's duration for the driver to release the modem
 static constexpr U32 CW_TEARDOWN_MARGIN_US = 250000;
 
-// Base configuration for the LoRa modem
+// Active LoRa modem configuration; frequency is the current carrier set at boot or by SET_FREQ
 struct lora_modem_config BASE_CONFIG = {
     .frequency = LoRaConfig::FREQUENCY,
     .bandwidth = BW_125_KHZ,
