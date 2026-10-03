@@ -25,6 +25,7 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 | Name | Description |
 |---|---|
 | Svc.Com | Interface to plug the radio into the communication stack |
+| run | Rate group input that re-arms receive once a continuous wave ends; connect it to a rate group |
 
 
 ## Configuration
@@ -40,7 +41,7 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 
 | Name | Description |
 |------|---|
-| CONTINUOUS_WAVE | Send continuous wave for a supplied duration |
+| CONTINUOUS_WAVE | Start a continuous wave for a supplied duration and respond immediately. Receive is re-armed by `run` once the wave ends; transmissions are dropped and further `CONTINUOUS_WAVE` commands return BUSY until then |
 
 ## Parameters
 
