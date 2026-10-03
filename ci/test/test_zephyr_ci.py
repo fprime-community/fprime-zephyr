@@ -39,11 +39,34 @@ def test_preload_touches_and_warns_when_port_stays(zephyr_ci, tmp_path, caplog):
     port = tmp_path / "ttyACM0"
     port.touch()
     plugin = make_plugin(zephyr_ci, port)
-    with mock.patch.object(zephyr_ci, "touch") as touch_mock, \
-            mock.patch.object(zephyr_ci, "wait_for", return_value=False), caplog.at_level(logging.WARNING):
+    order = mock.Mock()
+    plugin.subprocess = order.subprocess
+    plugin.subprocess.return_value = (None, None, (None, None))
+    with mock.patch.object(zephyr_ci, "touch", order.touch), \
+            mock.patch.object(zephyr_ci.ZephyrCiBase, "TOUCH_DISCONNECT_TIMEOUT", 0.2), \
+            caplog.at_level(logging.WARNING):
+        plugin.preload({"touch-baud": 1200, "flash-command": ["true"]})
+    assert order.mock_calls == [mock.call.touch(str(port), 1200), mock.call.subprocess(["true"])]
+    assert "still present 0.2 s" in caplog.text
+
+
+def test_preload_touch_without_warning_when_port_goes_away(zephyr_ci, tmp_path, caplog):
+    port = tmp_path / "ttyACM0"
+    port.touch()
+    plugin = make_plugin(zephyr_ci, port)
+    with mock.patch.object(zephyr_ci, "touch", side_effect=lambda *_: port.unlink()) as touch_mock, \
+            caplog.at_level(logging.WARNING):
         plugin.preload({"touch-baud": 1200, "flash-command": ["true"]})
     touch_mock.assert_called_once_with(str(port), 1200)
-    assert "still present" in caplog.text
+    assert "still present" not in caplog.text
+    plugin.subprocess.assert_called_once_with(["true"])
+
+
+def test_preload_does_not_touch_absent_port(zephyr_ci, tmp_path):
+    plugin = make_plugin(zephyr_ci, tmp_path / "ttyACM0")
+    with mock.patch.object(zephyr_ci, "touch") as touch_mock:
+        plugin.preload({"touch-baud": 1200, "flash-command": ["true"]})
+    touch_mock.assert_not_called()
     plugin.subprocess.assert_called_once_with(["true"])
 
 

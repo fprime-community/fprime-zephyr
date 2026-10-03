@@ -18,6 +18,10 @@ class ZephyrTouchReset final : public ZephyrTouchResetComponentBase {
   public:
     //! Default period between baud rate checks
     static constexpr U32 DEFAULT_POLL_PERIOD_MS = 100;
+    //! Shorter periods could read the host's brief replay of a saved touch baud rate on two consecutive polls
+    static constexpr U32 MIN_POLL_PERIOD_MS = 20;
+    //! Longer periods delay the touch beyond the host tools' wait for the port to go away
+    static constexpr U32 MAX_POLL_PERIOD_MS = 1000;
 
     // ----------------------------------------------------------------------
     // Component construction and destruction
@@ -47,7 +51,7 @@ class ZephyrTouchReset final : public ZephyrTouchResetComponentBase {
     Fw::Success configure(const struct device* device,  //!< UART device supporting line control (e.g. CDC ACM)
                           U32 touchBaud = Bootloader::TOUCH_BAUD,               //!< Baud rate that triggers the reboot
                           Bootloader::EntryFunction entry = Bootloader::enter,  //!< Reboots into the bootloader
-                          U32 pollPeriodMs = DEFAULT_POLL_PERIOD_MS             //!< Period between baud rate checks
+                          U32 pollPeriodMs = DEFAULT_POLL_PERIOD_MS             //!< Within [MIN, MAX]_POLL_PERIOD_MS
     );
 
   private:
@@ -68,8 +72,8 @@ class ZephyrTouchReset final : public ZephyrTouchResetComponentBase {
     Bootloader::EntryFunction m_entry;
     U32 m_touchBaud;
     U32 m_pollPeriodMs;
-    bool m_armed;      //!< A baud rate other than the touch baud rate has been observed
-    bool m_touchSeen;  //!< The previous poll read the touch baud rate
+    bool m_armed;      //!< A non-touch baud rate was read since configure() or the last failed entry
+    bool m_touchSeen;  //!< The previous poll read the touch baud rate while armed
 };
 
 }  // namespace Zephyr

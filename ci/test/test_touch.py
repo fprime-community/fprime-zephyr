@@ -109,7 +109,8 @@ def test_unknown_method_fails_before_touch(tmp_path):
     image.write_bytes(b"UF2\n")
     args = touch.parse_args([str(image), "--port", "/dev/ttyACM0"])
     args.method = "dfu"
-    with mock.patch.object(touch, "touch") as touch_mock, pytest.raises(touch.TouchFlashError):
+    with mock.patch.object(touch, "touch") as touch_mock, \
+            pytest.raises(touch.TouchFlashError, match="No flashing implementation"):
         touch.touch_and_flash(args)
     touch_mock.assert_not_called()
 

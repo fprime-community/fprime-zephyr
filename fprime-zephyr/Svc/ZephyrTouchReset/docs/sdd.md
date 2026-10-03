@@ -24,7 +24,9 @@ no other work item blocking that queue.
 The bootloader is entered when the baud rate *changes* to the touch baud rate and stays there for two consecutive polls:
 a reading of the touch baud rate takes effect only after a different baud rate has been observed since `configure()`,
 and only when the next poll reads the touch baud rate again. A touch therefore takes up to two poll periods (200 ms by
-default) to take effect.
+default) to take effect. `configure()` asserts that the poll period is between 20 ms and 1000 ms: shorter periods
+could read the replay described below on two consecutive polls, and longer ones delay the touch beyond the host tools'
+wait for the port to go away.
 
 The second reading is needed because Linux saves a port's baud rate, and when a tool opens the port it first re-sends the
 saved rate (for example 1200 after a touch) before the tool applies its own rate. That replay lasts far less than a poll
@@ -33,8 +35,9 @@ line coding starts at 115200 and the Linux `cdc-acm` driver sets 9600 when the d
 normally armed before any host opens the port. So:
 
 - Do not choose a touch baud rate that ground, CI, or terminal tools use to open the port.
-- After a touch made with a tool that leaves the port at the touch baud rate (such as `stty`), reset the host port, for
-  example `stty -F /dev/ttyACM0 115200`, before tools that do not set a baud rate (such as `cat`) open it again.
+- After any touch (including `fprime-zephyr-flash`, the CI `touch-baud` key, and `stty`), Linux keeps the touch baud
+  rate as the port's saved rate. Reset the host port, for example `stty -F /dev/ttyACM0 115200`, before tools that do
+  not set a baud rate (such as `cat`) open it again.
 
 Like the RP2040 (pico-sdk) and Teensy conventions, the trigger is the baud rate alone; DTR is not checked, so a touch
 that leaves DTR asserted (e.g. `stty -hupcl`) still works. If the entry function returns, for example because
@@ -93,7 +96,10 @@ bootloader. The log message still names the built-in `METHOD`.
     own `soc/atmel/sam0/common/bossa.c` can also perform the 1200 baud reset, but only when
     `CONFIG_BOOTLOADER_BOSSA_DEVICE_NAME` (default `"CDC_ACM_0"`) matches the CDC ACM device name. A node such as
     `cdc_acm_uart0` without a `label` is named `cdc_acm_uart0`, so either set that option or use this component, which
-    is required with the `device_next` USB stack.
+    is required with the `device_next` USB stack. Unlike this component, `bossa.c` resets on the first 1200 baud line
+    coding, including the saved rate Linux replays when a port is opened after a touch (see Design). Prefer this
+    component, and with the legacy stack keep the two from both monitoring the same port (e.g.
+    `CONFIG_CDC_ACM_DTE_RATE_CALLBACK_SUPPORT=n`).
 
 ## Host
 
@@ -134,4 +140,5 @@ to disappear before running `flash-command`. After the timeout, a warning is log
 
 The component has no unit tests: fprime-zephyr has no native unit test build, and the component's behavior depends on
 the Zephyr work queue and USB CDC ACM driver. Requirements are verified by inspection, by target builds of each
-platform branch, and by hardware tests. The host tool is covered by `ci/test/test_touch.py`.
+platform branch, and by hardware tests. The host tool is covered by `ci/test/test_touch.py` and the CI plugin's
+`touch-baud` preload by `ci/test/test_zephyr_ci.py`.

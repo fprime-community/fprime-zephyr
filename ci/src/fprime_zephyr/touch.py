@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Callable, Iterable, List, NamedTuple, Optional
 
 import serial
 
@@ -26,10 +26,20 @@ TEENSY_TOUCH_BAUD = 134
 UF2_INFO_FILE = "INFO_UF2.TXT"
 UF2_SEARCH_ROOTS = ["/media", "/run/media", "/Volumes", "/mnt"]
 
+
+
+class FlashMethod(NamedTuple):
+    """ Touch baud rate and flashing function, called with (args, image, UF2 volumes present before the touch) """
+    touch_baud: int
+    flash: Callable[[argparse.Namespace, Path, List[Path]], None]
+
+
 METHODS = {
-    "uf2": DEFAULT_TOUCH_BAUD,
-    "bossac": DEFAULT_TOUCH_BAUD,
-    "teensy": TEENSY_TOUCH_BAUD,
+    "uf2": FlashMethod(DEFAULT_TOUCH_BAUD, lambda args, image, existing: flash_uf2(
+        image, Path(args.volume) if args.volume else None, args.timeout, existing)),
+    "bossac": FlashMethod(DEFAULT_TOUCH_BAUD, lambda args, image, _: flash_bossac(
+        image, args.bootloader_port or args.port, args.timeout, args.port)),
+    "teensy": FlashMethod(TEENSY_TOUCH_BAUD, lambda args, image, _: flash_teensy(image, args.mcu, args.timeout)),
 }
 
 
@@ -194,21 +204,17 @@ def touch_and_flash(args: argparse.Namespace):
     image = Path(args.image)
     if not image.is_file():
         raise TouchFlashError(f"No such image: {image}")
-    flashers = {
-        "uf2": lambda existing: flash_uf2(image, Path(args.volume) if args.volume else None, args.timeout, existing),
-        "teensy": lambda existing: flash_teensy(image, args.mcu, args.timeout),
-        "bossac": lambda existing: flash_bossac(image, args.bootloader_port or args.port, args.timeout, args.port),
-    }
     # Check before touching: the touch leaves the board in its bootloader
-    if args.method not in flashers or args.method not in METHODS:
+    method = METHODS.get(args.method)
+    if method is None:
         raise TouchFlashError(f"No flashing implementation for method {args.method}")
     # Without a touch the board is already in its bootloader, so its mounted UF2 volume is not stale
     existing: List[Path] = []
     if args.port is not None:
         if args.method == "uf2" and not args.volume:
             existing = find_uf2_volumes()
-        touch(args.port, args.touch_baud if args.touch_baud is not None else METHODS[args.method])
-    flashers[args.method](existing)
+        touch(args.port, args.touch_baud if args.touch_baud is not None else method.touch_baud)
+    method.flash(args, image, existing)
 
 
 def parse_args(arguments: Optional[List[str]] = None) -> argparse.Namespace:
