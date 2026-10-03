@@ -31,7 +31,8 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
-    "fprime-ci"
+    "fprime-ci",
+    "pyserial",
 ]
 
 [project.urls]
@@ -39,6 +40,9 @@ Homepage = "https://fprime.jpl.nasa.gov"
 Documentation = "https://nasa.github.io/fprime/"
 Repository = "https://github.jpl.nasa.gov/FPRIME/ci-tools"
 
+
+[project.scripts]
+fprime-zephyr-flash = "fprime_zephyr.touch:main"
 
 [project.entry-points.fprime_gds]
 zephyr_ci = "fprime_zephyr.plugins.zephyr_ci:ZephyrCi"
