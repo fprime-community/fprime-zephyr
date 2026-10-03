@@ -5,6 +5,7 @@ This module allows Zephyr to build as part of the fprime.ci package
 from abc import abstractmethod, ABC
 import logging
 from pathlib import Path
+import time
 import serial
 
 import fprime_gds.plugin.definitions
@@ -82,6 +83,10 @@ class ZephyrCiBase(Ci, ABC):
         touch_baud = context.get(self.Keys.TOUCH_BAUD, None)
         if touch_baud is not None and Path(self.port).exists():
             touch(self.port, touch_baud)
+            # Give the board time to drop the application port before flashing
+            deadline = time.monotonic() + 5.0
+            while Path(self.port).exists() and time.monotonic() < deadline:
+                time.sleep(0.1)
         flash_command = context.get(self.Keys.FLASH_COMMAND, None)
         process, _, (_, _) = self.subprocess(
             flash_command

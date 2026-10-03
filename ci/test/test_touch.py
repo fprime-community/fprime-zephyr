@@ -74,3 +74,68 @@ def test_touch_opens_port_at_baud():
 def test_main_reports_missing_image(tmp_path, capsys):
     assert touch.main([str(tmp_path / "missing.uf2")]) == 1
     assert "No such image" in capsys.readouterr().err
+
+
+def test_find_uf2_volumes_skips_symlinks(tmp_path):
+    make_uf2_volume(tmp_path / "real" / "RPI-RP2")
+    (tmp_path / "link").symlink_to(tmp_path / "real")
+    assert touch.find_uf2_volumes([str(tmp_path)]) == [tmp_path / "real" / "RPI-RP2"]
+
+
+def test_find_uf2_volumes_skips_unreadable(tmp_path):
+    volume = make_uf2_volume(tmp_path / "RP2350")
+    with mock.patch.object(touch, "_subdirectories", side_effect=[[volume, tmp_path / "locked"], [], []]):
+        assert touch.find_uf2_volumes([str(tmp_path)]) == [volume]
+    assert touch._subdirectories(tmp_path / "missing") == []
+
+
+def test_flash_uf2_ignores_existing_volume(tmp_path):
+    stale = make_uf2_volume(tmp_path / "STALE")
+    image = tmp_path / "zephyr.uf2"
+    image.write_bytes(b"UF2\n")
+    with mock.patch.object(touch, "find_uf2_volumes", return_value=[stale]):
+        with pytest.raises(touch.TouchFlashError):
+            touch.flash_uf2(image, None, timeout=0.1, existing=[stale])
+    assert not (stale / "zephyr.uf2").exists()
+
+
+def test_flash_uf2_rejects_several_new_volumes(tmp_path):
+    volumes = [make_uf2_volume(tmp_path / "A"), make_uf2_volume(tmp_path / "B")]
+    image = tmp_path / "zephyr.uf2"
+    image.write_bytes(b"UF2\n")
+    with mock.patch.object(touch, "find_uf2_volumes", return_value=volumes):
+        with pytest.raises(touch.TouchFlashError, match="--volume"):
+            touch.flash_uf2(image, None, timeout=0.1)
+
+
+def test_flash_uf2_does_not_follow_destination_symlink(tmp_path):
+    volume = make_uf2_volume(tmp_path / "RPI-RP2")
+    victim = tmp_path / "victim"
+    victim.write_bytes(b"keep")
+    (volume / "zephyr.uf2").symlink_to(victim)
+    image = tmp_path / "zephyr.uf2"
+    image.write_bytes(b"UF2\n")
+    with pytest.raises(OSError):
+        touch.flash_uf2(image, volume, timeout=0.1)
+    assert victim.read_bytes() == b"keep"
+
+
+def test_flash_uf2_snapshots_volumes_before_touch(tmp_path):
+    image = tmp_path / "zephyr.uf2"
+    image.write_bytes(b"UF2\n")
+    stale = tmp_path / "STALE"
+    with mock.patch.object(touch, "find_uf2_volumes", return_value=[stale]), \
+            mock.patch.object(touch, "touch"), mock.patch.object(touch, "flash_uf2") as flash_mock:
+        touch.touch_and_flash(touch.parse_args([str(image), "--port", "/dev/ttyACM0"]))
+    assert flash_mock.call_args.args[3] == [stale]
+
+
+def test_flash_bossac_waits_for_port_cycle(tmp_path):
+    port = tmp_path / "ttyACM0"
+    image = tmp_path / "zephyr.bin"
+    states = [True, False, True]
+    with mock.patch.object(touch.Path, "exists", lambda self: states.pop(0)), \
+            mock.patch.object(touch, "run_tool") as tool_mock:
+        touch.flash_bossac(image, str(port), 1.0, str(port))
+    assert states == []
+    assert tool_mock.call_args.args[0][:3] == ["bossac", "-p", str(port)]

@@ -24,28 +24,35 @@ class ZephyrTouchReset final : public ZephyrTouchResetComponentBase {
     // ----------------------------------------------------------------------
 
     //! Construct ZephyrTouchReset object
-    ZephyrTouchReset(const char* const compName  //!< The component name
+    explicit ZephyrTouchReset(const char* const compName  //!< The component name
     );
 
-    //! Destroy ZephyrTouchReset object
+    //! Destroy ZephyrTouchReset object, cancelling monitoring
     ~ZephyrTouchReset();
+
+    //! The kernel holds a pointer to the work item, so the component cannot be copied
+    ZephyrTouchReset(const ZephyrTouchReset&) = delete;
+    ZephyrTouchReset& operator=(const ZephyrTouchReset&) = delete;
 
     //! Start monitoring a UART for the touch baud rate
     //!
     //! Monitoring runs on the Zephyr system work queue so that it keeps working when F Prime threads are starved.
-    //! Defaults select the touch baud rate and bootloader entry method for the SoC / board being built.
+    //! Defaults select the touch baud rate and bootloader entry method for the SoC / board being built. The
+    //! bootloader is entered only when the baud rate changes to the touch baud rate after a different baud rate was
+    //! observed. Calling configure() again stops any previous monitoring first.
     //!
-    //! \return SUCCESS when monitoring started, FAILURE when the device is not ready or lacks CONFIG_UART_LINE_CTRL
+    //! \return SUCCESS when monitoring started, FAILURE (monitoring stopped) when the device is not ready or its baud
+    //! rate cannot be read through uart_line_ctrl_get (e.g. CONFIG_UART_LINE_CTRL is disabled)
     Fw::Success configure(const struct device* device,  //!< UART device supporting line control (e.g. CDC ACM)
                           U32 touchBaud = Bootloader::TOUCH_BAUD,               //!< Baud rate that triggers the reboot
                           Bootloader::EntryFunction entry = Bootloader::enter,  //!< Reboots into the bootloader
                           U32 pollPeriodMs = DEFAULT_POLL_PERIOD_MS             //!< Period between baud rate checks
     );
 
-    //! Check the monitored UART once and enter the bootloader when it is set to the touch baud rate
+  private:
+    //! Check the monitored UART once and enter the bootloader when it changes to the touch baud rate
     void check();
 
-  private:
     //! Work item wrapper allowing the work handler to recover the component
     struct PollWork {
         struct k_work_delayable work;
@@ -60,6 +67,7 @@ class ZephyrTouchReset final : public ZephyrTouchResetComponentBase {
     Bootloader::EntryFunction m_entry;
     U32 m_touchBaud;
     U32 m_pollPeriodMs;
+    bool m_armed;  //!< A baud rate other than the touch baud rate has been observed
 };
 
 }  // namespace Zephyr

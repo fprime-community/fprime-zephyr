@@ -19,3 +19,16 @@ register_fprime_library(
     DEPENDS
         kernel
 )
+
+### Unit Tests ###
+# No unit tests yet: see docs/sdd.md "Verification"
+# register_fprime_ut(
+#     AUTOCODER_INPUTS
+#         "${CMAKE_CURRENT_LIST_DIR}/ZephyrTouchReset.fpp"
+#     SOURCES
+#         "${CMAKE_CURRENT_LIST_DIR}/test/ut/ZephyrTouchResetTestMain.cpp"
+#         "${CMAKE_CURRENT_LIST_DIR}/test/ut/ZephyrTouchResetTester.cpp"
+#     DEPENDS
+#         STest
+#     UT_AUTO_HELPERS
+# )

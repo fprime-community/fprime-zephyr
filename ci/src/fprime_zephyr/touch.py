@@ -66,16 +66,36 @@ def touch(port: str, baud: int = DEFAULT_TOUCH_BAUD, settle: float = 0.2):
             pass
 
 
+def _subdirectories(path: Path) -> List[Path]:
+    """ List the real (non-symlink) subdirectories of path, skipping any that cannot be read """
+    try:
+        children = list(path.iterdir())
+    except OSError:
+        return []
+    return [child for child in children if not child.is_symlink() and child.is_dir()]
+
+
+def _is_uf2_volume(path: Path) -> bool:
+    """ Check whether path holds a UF2 bootloader INFO file """
+    try:
+        return (path / UF2_INFO_FILE).is_file()
+    except OSError:
+        return False
+
+
 def find_uf2_volumes(roots: Iterable[str] = UF2_SEARCH_ROOTS) -> List[Path]:
-    """ Find mounted UF2 bootloader volumes (directories containing INFO_UF2.TXT) up to two levels below roots """
+    """ Find mounted UF2 bootloader volumes (directories containing INFO_UF2.TXT) up to two levels below roots
+
+    Symbolic links and unreadable directories are skipped.
+    """
     volumes = []
     for root in roots:
         root_path = Path(root)
         if not root_path.is_dir():
             continue
-        candidates = [root_path] + [child for child in root_path.iterdir() if child.is_dir()]
-        candidates += [grandchild for child in candidates[1:] for grandchild in child.iterdir() if grandchild.is_dir()]
-        volumes.extend(candidate for candidate in candidates if (candidate / UF2_INFO_FILE).is_file())
+        children = _subdirectories(root_path)
+        candidates = [root_path] + children + [grandchild for child in children for grandchild in _subdirectories(child)]
+        volumes.extend(candidate for candidate in candidates if _is_uf2_volume(candidate))
     return volumes
 
 
@@ -89,28 +109,47 @@ def wait_for(predicate, timeout: float, interval: float = 0.2):
     return result
 
 
-def flash_uf2(image: Path, volume: Optional[Path], timeout: float) -> Path:
+def new_uf2_volumes(existing: Iterable[Path]) -> List[Path]:
+    """ Find UF2 volumes that are not in existing """
+    existing = set(existing)
+    return [volume for volume in find_uf2_volumes() if volume not in existing]
+
+
+def copy_image(image: Path, volume: Path) -> Path:
+    """ Copy image into volume without following a symbolic link at the destination """
+    destination = volume / image.name
+    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0), 0o644)
+    with open(image, "rb") as source, os.fdopen(descriptor, "wb") as target:
+        shutil.copyfileobj(source, target)
+    return destination
+
+
+def flash_uf2(image: Path, volume: Optional[Path], timeout: float, existing: Iterable[Path] = ()) -> Path:
     """ Copy a UF2 image onto the UF2 bootloader volume, waiting for the volume to be mounted
 
     Args:
         image: UF2 image to flash
         volume: bootloader volume mount point, or None to search the usual mount locations
         timeout: seconds to wait for the volume
+        existing: volumes mounted before the touch, which are ignored when searching
     Returns:
         volume the image was copied to
     """
     if image.suffix.lower() != ".uf2":
         raise TouchFlashError(f"UF2 flashing requires a .uf2 image, got {image}")
     if volume is not None:
-        found = wait_for(lambda: (volume / UF2_INFO_FILE).is_file() and volume, timeout)
+        found = volume if wait_for(lambda: _is_uf2_volume(volume), timeout) else None
     else:
-        found = wait_for(lambda: next(iter(find_uf2_volumes()), None), timeout)
-    if not found:
-        raise TouchFlashError(f"No UF2 bootloader volume appeared within {timeout}s (is it mounted?)")
+        volumes = wait_for(lambda: new_uf2_volumes(existing), timeout)
+        if len(volumes) > 1:
+            raise TouchFlashError(f"Several UF2 volumes appeared ({', '.join(map(str, volumes))}), select one with --volume")
+        found = volumes[0] if volumes else None
+    if found is None:
+        raise TouchFlashError(f"No new UF2 bootloader volume appeared within {timeout}s (is it mounted?)")
     LOGGER.info("Copying %s to %s", image, found)
-    shutil.copyfile(image, Path(found) / image.name)
+    copy_image(image, found)
     os.sync()
-    return Path(found)
+    return found
 
 
 def run_tool(command: List[str], timeout: float):
@@ -129,8 +168,13 @@ def flash_teensy(image: Path, mcu: str, timeout: float):
     run_tool(["teensy_loader_cli", f"--mcu={mcu}", "-w", "-v", str(image)], timeout)
 
 
-def flash_bossac(image: Path, bootloader_port: str, timeout: float):
-    """ Flash a BIN image with bossac once the BOSSA bootloader port is available """
+def flash_bossac(image: Path, bootloader_port: str, timeout: float, touched_port: Optional[str] = None):
+    """ Flash a BIN image with bossac once the BOSSA bootloader port is available
+
+    When the bootloader reuses the touched port, wait for the application's port to go away first.
+    """
+    if touched_port == bootloader_port:
+        wait_for(lambda: not Path(bootloader_port).exists(), timeout)
     if not wait_for(lambda: Path(bootloader_port).exists(), timeout):
         raise TouchFlashError(f"Bootloader port {bootloader_port} did not appear within {timeout}s")
     run_tool(["bossac", "-p", bootloader_port, "-e", "-w", "-v", "-R", str(image)], timeout)
@@ -141,14 +185,17 @@ def touch_and_flash(args: argparse.Namespace):
     image = Path(args.image)
     if not image.is_file():
         raise TouchFlashError(f"No such image: {image}")
+    if args.method not in METHODS:
+        raise TouchFlashError(f"No flashing implementation for method {args.method}")
+    existing = find_uf2_volumes() if args.method == "uf2" and not args.volume else []
     if args.port is not None:
         touch(args.port, args.touch_baud if args.touch_baud is not None else METHODS[args.method])
     if args.method == "uf2":
-        flash_uf2(image, Path(args.volume) if args.volume else None, args.timeout)
+        flash_uf2(image, Path(args.volume) if args.volume else None, args.timeout, existing)
     elif args.method == "teensy":
         flash_teensy(image, args.mcu, args.timeout)
-    elif args.method == "bossac":
-        flash_bossac(image, args.bootloader_port or args.port, args.timeout)
+    else:
+        flash_bossac(image, args.bootloader_port or args.port, args.timeout, args.port)
 
 
 def parse_args(arguments: Optional[List[str]] = None) -> argparse.Namespace:

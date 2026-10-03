@@ -8,6 +8,25 @@ The component is opt-in: projects that do not instantiate it are unaffected. It 
 coding from the Zephyr system work queue, so the touch keeps working when F Prime threads or rate groups are starved or
 hung.
 
+> [!WARNING]
+> Any host process that can open the monitored port can reboot the board into its bootloader and, because these
+> bootloaders accept unsigned images, reflash it. The bootloader entry is not reported through F Prime events or
+> telemetry. Use this component on development builds, and do not monitor a UART that carries a fielded ground link.
+
+## Design
+
+`ZephyrTouchReset` is a kernel-context helper that sits outside the F Prime execution model: it is an F Prime component
+only so that it is instantiated and configured with the rest of the topology. It deliberately has no `Svc.Sched` port.
+Its independence from F Prime (ZephyrTouchReset-004) relies on the Zephyr system work queue running at a cooperative
+priority (`CONFIG_SYSTEM_WORKQUEUE_PRIORITY`, default -1), above the preemptible priorities used by F Prime tasks, and on
+no other work item blocking that queue.
+
+The bootloader is entered when the baud rate *changes* to the touch baud rate: a reading of the touch baud rate takes
+effect only after a different baud rate has been observed since `configure()`. A host that is already at the touch
+baud rate when the board boots, or a touch baud rate equal to the USB CDC ACM default line coding (115200), therefore
+does not cause a reboot loop. The bootloader message is printed with `printk` to keep the system work queue stack use
+small.
+
 ## Supported Platforms
 
 The touch baud rate and the bootloader entry method are selected at compile time from the Zephyr SoC / board
@@ -23,7 +42,8 @@ configuration (see `BootloaderEntry.cpp`):
 | Any other board | (fallback) | 1200 | Warm reboot |
 
 The selected baud rate and method are available as `Zephyr::Bootloader::TOUCH_BAUD` and `Zephyr::Bootloader::METHOD`.
-Projects may override both through `configure()`, for example to use a custom bootloader.
+Projects may override the baud rate and the entry function through `configure()`, for example to use a custom
+bootloader. The log message still names the built-in `METHOD`.
 
 ## Usage
 
@@ -36,15 +56,18 @@ Projects may override both through `configure()`, for example to use a custom bo
 2. After the UART is set up, configure the component with the UART device to monitor:
 
     ```c++
-    (void)touchReset.configure(DEVICE_DT_GET(DT_NODELABEL(cdc_acm_uart0)));
+    if (touchReset.configure(DEVICE_DT_GET(DT_NODELABEL(cdc_acm_uart0))) != Fw::Success::SUCCESS) {
+        Fw::Logger::log("Touch reset unavailable\n");
+    }
     ```
 
     `configure()` takes optional arguments: the touch baud rate, a custom entry function, and the poll period
-    (default 100 ms). It returns `Fw::Success::FAILURE` and does not start monitoring when the device is not ready or the
-    driver lacks line control support.
+    (default 100 ms). It returns `Fw::Success::FAILURE` and does not monitor when the device is not ready or
+    `uart_line_ctrl_get(UART_LINE_CTRL_BAUD_RATE)` fails, for example because `CONFIG_UART_LINE_CTRL` is disabled or the
+    driver cannot report its baud rate. Calling `configure()` again stops any earlier monitoring first.
 
-3. Enable line control in the project's `prj.conf` or board `.conf` file. `CONFIG_REBOOT` is needed by the warm reboot
-   fallbacks:
+3. Enable line control in the project's `prj.conf` or board `.conf` file. `CONFIG_REBOOT` is needed by the Teensy,
+   retention boot mode, and warm reboot entry methods:
 
     ```
     CONFIG_UART_LINE_CTRL=y
@@ -52,7 +75,9 @@ Projects may override both through `configure()`, for example to use a custom bo
     ```
 
     SAMD boards also need the matching bootloader variant, for example
-    `CONFIG_BOOTLOADER_BOSSA=y` and `CONFIG_BOOTLOADER_BOSSA_ADAFRUIT_UF2=y`.
+    `CONFIG_BOOTLOADER_BOSSA=y` and `CONFIG_BOOTLOADER_BOSSA_ADAFRUIT_UF2=y`. With the legacy USB device stack, Zephyr's
+    own `soc/atmel/sam0/common/bossa.c` already performs the 1200 baud reset for these options; this component is needed
+    with the `device_next` USB stack.
 
 ## Host
 
@@ -69,8 +94,13 @@ fprime-zephyr-flash --method teensy --mcu TEENSY41 --port /dev/ttyACM0 build-fpr
 fprime-zephyr-flash --method bossac --port /dev/ttyACM0 build-fprime-automatic-zephyr/zephyr/zephyr.bin
 ```
 
-The `zephyr-ci` CI plugins accept an optional `touch-baud` key, which touches the console port before running
-`flash-command`.
+When `--volume` is omitted, the UF2 method only accepts a volume that appears after the touch, and fails when several
+appear. `--method teensy` runs [`teensy_loader_cli`](https://github.com/PaulStoffregen/teensy_loader_cli) and
+`--method bossac` runs [`bossac`](https://github.com/shumatech/BOSSA): the first binary of that name on `PATH` is used,
+so install them from these upstreams or the OS package manager.
+
+The `zephyr-ci` CI plugins accept an optional `touch-baud` key, which touches the console port and waits for it to
+disappear before running `flash-command`.
 
 ## Requirements
 
@@ -80,4 +110,11 @@ The `zephyr-ci` CI plugins accept an optional `touch-baud` key, which touches th
 | ZephyrTouchReset-002 | The component shall take no action when unconfigured or when the monitored device is not ready. | Inspection |
 | ZephyrTouchReset-003 | The component shall default the touch baud rate and bootloader entry method to those of the platform being built. | Inspection, build |
 | ZephyrTouchReset-004 | The component shall monitor the UART independently of F Prime threads and rate groups. | Inspection |
-| ZephyrTouchReset-005 | The component shall not start monitoring when the UART driver does not support line control. | Inspection |
+| ZephyrTouchReset-005 | The component shall not monitor the UART when its baud rate cannot be read through `uart_line_ctrl_get`. | Inspection |
+| ZephyrTouchReset-006 | The component shall enter the bootloader only after observing a baud rate other than the touch baud rate since configuration. | Inspection, hardware test |
+
+## Verification
+
+The component has no unit tests: fprime-zephyr has no native unit test build, and the component's behavior depends on
+the Zephyr work queue and USB CDC ACM driver. Requirements are verified by inspection, by target builds of each
+platform branch, and by hardware tests. The host tool is covered by `ci/test/test_touch.py`.

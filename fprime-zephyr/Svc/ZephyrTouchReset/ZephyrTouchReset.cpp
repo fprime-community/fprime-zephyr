@@ -8,6 +8,7 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
+#include <zephyr/sys/printk.h>
 
 namespace Zephyr {
 
@@ -21,13 +22,14 @@ ZephyrTouchReset ::ZephyrTouchReset(const char* const compName)
       m_device(nullptr),
       m_entry(Bootloader::enter),
       m_touchBaud(Bootloader::TOUCH_BAUD),
-      m_pollPeriodMs(DEFAULT_POLL_PERIOD_MS) {
+      m_pollPeriodMs(DEFAULT_POLL_PERIOD_MS),
+      m_armed(false) {
     this->m_pollWork.component = this;
     k_work_init_delayable(&this->m_pollWork.work, ZephyrTouchReset::pollHandler);
 }
 
 ZephyrTouchReset ::~ZephyrTouchReset() {
-    struct k_work_sync sync;
+    struct k_work_sync sync{};
     (void)k_work_cancel_delayable_sync(&this->m_pollWork.work, &sync);
 }
 
@@ -37,20 +39,25 @@ Fw::Success ZephyrTouchReset ::configure(const struct device* device,
                                          U32 pollPeriodMs) {
     FW_ASSERT(entry != nullptr);
     FW_ASSERT(pollPeriodMs > 0);
-    this->m_device = device;
-    this->m_touchBaud = touchBaud;
-    this->m_entry = entry;
-    this->m_pollPeriodMs = pollPeriodMs;
+    struct k_work_sync sync{};
+    (void)k_work_cancel_delayable_sync(&this->m_pollWork.work, &sync);
+    this->m_device = nullptr;
 
     if ((device == nullptr) || !device_is_ready(device)) {
         Fw::Logger::log("[TouchReset] UART device not ready, touch reset disabled\n");
         return Fw::Success::FAILURE;
     }
     U32 baud = 0;
-    if (uart_line_ctrl_get(device, UART_LINE_CTRL_BAUD_RATE, &baud) == -ENOSYS) {
-        Fw::Logger::log("[TouchReset] CONFIG_UART_LINE_CTRL unavailable, touch reset disabled\n");
+    const int status = uart_line_ctrl_get(device, UART_LINE_CTRL_BAUD_RATE, &baud);
+    if (status != 0) {
+        Fw::Logger::log("[TouchReset] UART baud rate unreadable (%d), touch reset disabled\n", status);
         return Fw::Success::FAILURE;
     }
+    this->m_touchBaud = touchBaud;
+    this->m_entry = entry;
+    this->m_pollPeriodMs = pollPeriodMs;
+    this->m_armed = false;
+    this->m_device = device;
     (void)k_work_reschedule(&this->m_pollWork.work, K_MSEC(this->m_pollPeriodMs));
     return Fw::Success::SUCCESS;
 }
@@ -60,9 +67,14 @@ void ZephyrTouchReset ::check() {
         return;
     }
     U32 baud = 0;
-    if ((uart_line_ctrl_get(this->m_device, UART_LINE_CTRL_BAUD_RATE, &baud) == 0) && (baud == this->m_touchBaud)) {
-        Fw::Logger::log("[TouchReset] %" PRIu32 " baud touch, entering bootloader: %s\n", this->m_touchBaud,
-                        Bootloader::METHOD);
+    if (uart_line_ctrl_get(this->m_device, UART_LINE_CTRL_BAUD_RATE, &baud) != 0) {
+        return;
+    }
+    if (baud != this->m_touchBaud) {
+        this->m_armed = true;
+    } else if (this->m_armed) {
+        // printk keeps the system work queue stack small (Fw::Logger formats into a stack Fw::String)
+        printk("[TouchReset] %" PRIu32 " baud touch, entering bootloader: %s\n", this->m_touchBaud, Bootloader::METHOD);
         this->m_entry();
     }
 }

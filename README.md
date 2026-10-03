@@ -122,7 +122,9 @@ bootloader by opening the USB CDC ACM port at a "touch" baud rate (1200 for RP20
 134 for Teensy 4.x). The `fprime-zephyr-flash` tool from the `ci` package then touches the port and flashes the image:
 
 ```bash
-pip install ./lib/fprime-zephyr/ci
+# fprime-zephyr-flash needs only pyserial; --no-deps skips the CI-only fprime-ci dependency
+pip install pyserial
+pip install --no-deps ./lib/fprime-zephyr/ci
 fprime-zephyr-flash --port /dev/ttyACM0 build-fprime-automatic-zephyr/zephyr/zephyr.uf2
 ```
 
