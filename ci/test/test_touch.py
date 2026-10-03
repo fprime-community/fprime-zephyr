@@ -86,10 +86,27 @@ def test_touch_baud_override_and_no_port(tmp_path):
     assert tool_mock.call_args_list[0].args[0] == ["teensy_loader_cli", "--mcu=TEENSY40", "-w", "-v", str(image)]
 
 
-def test_touch_opens_port_at_baud():
+def test_touch_changes_port_to_baud():
     with mock.patch.object(touch.serial, "Serial") as serial_mock:
-        touch.touch("/dev/ttyACM0", 1200, settle=0)
-    serial_mock.assert_called_once_with("/dev/ttyACM0", baudrate=1200)
+        touch.touch("/dev/ttyACM0", 1200, settle=0, arm=0)
+    serial_mock.assert_called_once_with("/dev/ttyACM0", baudrate=touch.ARM_BAUD)
+    assert serial_mock.return_value.baudrate == 1200
+    assert serial_mock.return_value.dtr is False
+    serial_mock.return_value.close.assert_called_once()
+
+
+def test_touch_arms_at_another_rate_when_touch_baud_is_arm_baud():
+    with mock.patch.object(touch.serial, "Serial") as serial_mock:
+        touch.touch("/dev/ttyACM0", touch.ARM_BAUD, settle=0, arm=0)
+    serial_mock.assert_called_once_with("/dev/ttyACM0", baudrate=2 * touch.ARM_BAUD)
+    assert serial_mock.return_value.baudrate == touch.ARM_BAUD
+
+
+def test_touch_reports_failed_baud_change():
+    with mock.patch.object(touch.serial, "Serial") as serial_mock:
+        type(serial_mock.return_value).baudrate = mock.PropertyMock(side_effect=touch.serial.SerialException("gone"))
+        with pytest.raises(touch.TouchFlashError, match="Failed to set"):
+            touch.touch("/dev/ttyACM0", 1200, settle=0, arm=0)
     serial_mock.return_value.close.assert_called_once()
 
 

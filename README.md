@@ -118,7 +118,7 @@ fprime-util build zephyr
 ## Flashing Over USB (Touch Reset)
 
 Deployments may instantiate the opt-in `Zephyr.ZephyrTouchReset` component so that the host can reboot the board into its
-bootloader by opening the USB CDC ACM port at a "touch" baud rate (1200 for RP2040/RP2350, SAMD, and nRF52 UF2 boards;
+bootloader by switching the USB CDC ACM port to a "touch" baud rate (1200 for RP2040/RP2350, SAMD, and nRF52 UF2 boards;
 134 for Teensy 4.x). The `fprime-zephyr-flash` tool from the `ci` package then touches the port and flashes the image:
 
 ```bash

@@ -21,6 +21,12 @@ LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TOUCH_BAUD = 1200
 TEENSY_TOUCH_BAUD = 134
+# Rate the port is opened at before a touch, and how long it is held (default ZephyrTouchReset poll period: 100 ms)
+ARM_BAUD = 9600
+ARM_TIME = 0.3
+# How long the touch rate is held before DTR drops and the port closes. The device keeps the rate after the close, and
+# an RP2 board's host may miss the switch to the boot ROM if the port is still open when it happens.
+TOUCH_TIME = 0.05
 
 # UF2 bootloaders expose a mass-storage volume containing this file
 UF2_INFO_FILE = "INFO_UF2.TXT"
@@ -51,22 +57,32 @@ class TouchFlashError(Exception):
     """ Raised when the board cannot be put into its bootloader or flashed """
 
 
-def touch(port: str, baud: int = DEFAULT_TOUCH_BAUD, settle: float = 0.2):
-    """ Open and close a serial port at the touch baud rate, requesting that the board enter its bootloader
+def touch(port: str, baud: int = DEFAULT_TOUCH_BAUD, settle: float = TOUCH_TIME, arm: float = ARM_TIME):
+    """ Switch a serial port to the touch baud rate, requesting that the board enter its bootloader
 
-    Opening the port sends the baud rate to the device (USB CDC SET_LINE_CODING). The board reboots on its own, so the
-    port usually disappears shortly after this call.
+    Each baud rate change sends the rate to the device (USB CDC SET_LINE_CODING). The port is first opened at another
+    rate and held there for longer than the device's poll period: the device acts only on a change to the touch rate,
+    and Linux sends no line coding when the port is already at the requested rate (as it is after an earlier touch).
+    The board reboots on its own, so the port usually disappears shortly after this call.
 
     Args:
         port: serial port of the running board (e.g. /dev/ttyACM0)
         baud: touch baud rate
-        settle: seconds to hold the port open so the device can observe the line coding
+        settle: seconds to hold the port at the touch rate before closing it
+        arm: seconds to hold the port at the other rate first; must exceed the device's poll period
     """
-    LOGGER.info("Touching %s at %d baud", port, baud)
+    arm_baud = ARM_BAUD if baud != ARM_BAUD else 2 * ARM_BAUD
+    LOGGER.info("Touching %s at %d baud (from %d baud)", port, baud, arm_baud)
     try:
-        handle = serial.Serial(port, baudrate=baud)
+        handle = serial.Serial(port, baudrate=arm_baud)
     except serial.SerialException as exception:
         raise TouchFlashError(f"Failed to open {port} for touch: {exception}") from exception
+    try:
+        time.sleep(arm)
+        handle.baudrate = baud
+    except (serial.SerialException, OSError) as exception:
+        handle.close()
+        raise TouchFlashError(f"Failed to set {port} to {baud} baud: {exception}") from exception
     try:
         time.sleep(settle)
         handle.dtr = False

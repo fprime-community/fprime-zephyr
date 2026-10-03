@@ -1,7 +1,7 @@
 # Zephyr::ZephyrTouchReset
 
 `Zephyr::ZephyrTouchReset` implements the baud rate "touch" reset used by Arduino-style tooling. When the host switches
-the monitored UART (typically the USB CDC ACM port) to the touch baud rate, for example by opening it at that rate, the
+the monitored UART (typically the USB CDC ACM port) to the touch baud rate, for example by switching to that rate from another, the
 board reboots into its bootloader, so new software can be flashed without pressing any buttons.
 
 The component is opt-in: projects that do not instantiate it are unaffected. It has no ports. It polls the UART line
@@ -105,9 +105,13 @@ bootloader. The log message still names the built-in `METHOD`.
 
 ## Host
 
-Any tool that opens the port at the touch baud rate triggers the reset, for example
-`stty -F /dev/ttyACM0 1200`. The `fprime-zephyr-ci` Python package provides `fprime-zephyr-flash`, which touches the port,
-waits for the bootloader, and flashes the image:
+Any tool that changes the port to the touch baud rate triggers the reset, for example
+`stty -F /dev/ttyACM0 9600 && stty -F /dev/ttyACM0 1200`. Linux sends no line coding when the port is already at the
+requested rate, so a plain `stty -F /dev/ttyACM0 1200` does nothing after an earlier touch. On RP2040 / RP2350 the host
+notices the switch to the boot ROM only at its next request on the port, such as DTR dropping when the port closes: a
+tool that holds the port open at the touch rate keeps seeing the application's device until it closes the port. The
+`fprime-zephyr-ci` Python package provides `fprime-zephyr-flash`, which touches the port (9600 baud for 0.3 s, then the
+touch rate, then closes the port before the board reboots), waits for the bootloader, and flashes the image:
 
 ```bash
 # RP2040 / RP2350 / nRF52 / SAMD UF2: copy the image to the UF2 volume once it is mounted
