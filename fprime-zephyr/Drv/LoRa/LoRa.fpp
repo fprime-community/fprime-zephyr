@@ -55,7 +55,8 @@ module Zephyr {
         @ Rate group port that re-arms receive after a continuous wave
         sync input port run: Svc.Sched
 
-        @ Set the LoRa frequency in Hz
+        @ Set the LoRa carrier frequency in Hz. Rejected outside LoRaConfig::MIN_FREQUENCY..MAX_FREQUENCY;
+        @ not persisted, so the radio returns to LoRaConfig::FREQUENCY on reboot
         sync command SET_FREQ(freq_hz: U32)
 
         @ Start/stop transmission on the LoRa module
@@ -69,6 +70,10 @@ module Zephyr {
         event SendFailed(status: I32) severity warning high \
             format "Failed to send LoRa message: {}" throttle 2
         
+        @ Event to indicate a SET_FREQ frequency outside the configured range
+        event FrequencyOutOfRange(freq_hz: U32, min_hz: U32, max_hz: U32) severity warning low \
+            format "Frequency {} Hz outside allowed range [{}, {}] Hz"
+
         @ Event to indicate allocation failure
         event AllocationFailed(allocation_size: FwSizeType) severity warning high \
             format "Failed to allocate buffer of: {} bytes" throttle 2

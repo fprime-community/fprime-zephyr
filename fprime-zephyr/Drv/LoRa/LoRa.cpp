@@ -232,7 +232,10 @@ void LoRa ::SET_FREQ_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 freq_hz) {
     Os::ScopeLock lock(this->m_mutex);
     FW_ASSERT(this->m_lora_device != nullptr);
     Fw::CmdResponse response = Fw::CmdResponse::OK;
-    if (lora_recv_async(this->m_lora_device, nullptr, nullptr) != 0) {
+    if ((freq_hz < LoRaConfig::MIN_FREQUENCY) || (freq_hz > LoRaConfig::MAX_FREQUENCY)) {
+        this->log_WARNING_LO_FrequencyOutOfRange(freq_hz, LoRaConfig::MIN_FREQUENCY, LoRaConfig::MAX_FREQUENCY);
+        response = Fw::CmdResponse::VALIDATION_ERROR;
+    } else if (lora_recv_async(this->m_lora_device, nullptr, nullptr) != 0) {
         this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
         response = Fw::CmdResponse::EXECUTION_ERROR;
     } else {
