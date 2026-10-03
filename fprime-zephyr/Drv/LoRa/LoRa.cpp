@@ -13,9 +13,9 @@ namespace Zephyr {
 // Margin past a continuous wave's duration for the driver to release the modem
 static constexpr U32 CW_TEARDOWN_MARGIN_US = 250000;
 
-static_assert((LoRaConfig::MIN_FREQUENCY <= LoRaConfig::FREQUENCY) &&
+static_assert((0 < LoRaConfig::MIN_FREQUENCY) && (LoRaConfig::MIN_FREQUENCY <= LoRaConfig::FREQUENCY) &&
                   (LoRaConfig::FREQUENCY <= LoRaConfig::MAX_FREQUENCY),
-              "LoRaConfig: FREQUENCY must lie within MIN_FREQUENCY to MAX_FREQUENCY");
+              "LoRaConfig: FREQUENCY must lie within a non-zero MIN_FREQUENCY to MAX_FREQUENCY");
 
 // Active LoRa modem configuration; frequency is the current carrier set at boot or by SET_FREQ
 struct lora_modem_config BASE_CONFIG = {

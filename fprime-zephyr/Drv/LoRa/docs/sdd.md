@@ -42,12 +42,15 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 
 Projects that override `LoRaCfg.hpp` must define MIN_FREQUENCY and MAX_FREQUENCY, and FREQUENCY must lie between them (checked at compile time). Setting both to FREQUENCY keeps SET_FREQ disabled.
 
+> [!WARNING]
+> SET_FREQ moves both uplink and downlink. A wrong in-range frequency loses the link until the ground station follows it or the radio reboots back to FREQUENCY.
+
 ## Command
 
 | Name | Description |
 |------|---|
 | CONTINUOUS_WAVE | Start a continuous wave for a supplied duration and respond immediately. Receive is re-armed by `run` once the wave ends; transmissions are dropped and further `CONTINUOUS_WAVE` commands return BUSY until then. The wave is transmitted at the current frequency |
-| SET_FREQ | Retune receive, transmit, and continuous wave to the supplied frequency in Hz. Returns VALIDATION_ERROR outside MIN_FREQUENCY to MAX_FREQUENCY, BUSY during a continuous wave, and EXECUTION_ERROR (keeping and re-arming receive at the previous frequency) if the radio rejects it. Not persisted: the radio returns to FREQUENCY on reboot. On SX126x radios, whether image calibration is rerun for a different band depends on the Zephyr driver backend |
+| SET_FREQ | Retune receive, transmit, and continuous wave to the supplied frequency in Hz. Returns VALIDATION_ERROR outside MIN_FREQUENCY to MAX_FREQUENCY, BUSY during a continuous wave, and EXECUTION_ERROR (keeping and re-arming receive at the previous frequency) if the driver reports an error. The driver does not check the radio's RF band, so MIN_FREQUENCY to MAX_FREQUENCY must lie within it. Not persisted: the radio returns to FREQUENCY on reboot. On SX126x radios, whether image calibration is rerun for a different band depends on the Zephyr driver backend |
 
 ## Parameters
 
