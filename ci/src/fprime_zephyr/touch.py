@@ -1,0 +1,278 @@
+""" fprime_zephyr.touch: reboot boards into their bootloader with a baud rate "touch" and flash them
+
+Many USB boards reboot into their bootloader when the host opens their USB CDC ACM port at a special "touch" baud rate:
+1200 for RP2040/RP2350, SAMD (BOSSA/UF2), and nRF52 (UF2) and 134 for Teensy. F Prime Zephyr deployments get this
+behavior from the Zephyr.ZephyrTouchReset component. This module provides the host side: touch the port, wait for the
+bootloader to appear, and flash the image.
+"""
+import argparse
+import logging
+import os
+import shutil
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Callable, Iterable, List, NamedTuple, Optional
+
+import serial
+
+LOGGER = logging.getLogger(__name__)
+
+DEFAULT_TOUCH_BAUD = 1200
+TEENSY_TOUCH_BAUD = 134
+# Rate the port is opened at before a touch, and how long it is held (default ZephyrTouchReset poll period: 100 ms)
+ARM_BAUD = 9600
+ARM_TIME = 0.3
+# How long the touch rate is held before DTR drops and the port closes. The device keeps the rate after the close, and
+# an RP2 board's host may miss the switch to the boot ROM if the port is still open when it happens.
+TOUCH_TIME = 0.05
+
+# UF2 bootloaders expose a mass-storage volume containing this file
+UF2_INFO_FILE = "INFO_UF2.TXT"
+UF2_SEARCH_ROOTS = ["/media", "/run/media", "/Volumes", "/mnt"]
+
+
+
+class FlashMethod(NamedTuple):
+    """ Touch baud rate and flashing function, called with (args, image, existing)
+
+    existing lists the UF2 volumes mounted before the touch. It is filled only for uf2 with --port and without --volume,
+    and is empty otherwise (including when no touch is made), so it does not mean "nothing was mounted".
+    """
+    touch_baud: int
+    flash: Callable[[argparse.Namespace, Path, List[Path]], None]
+
+
+METHODS = {
+    "uf2": FlashMethod(DEFAULT_TOUCH_BAUD, lambda args, image, existing: flash_uf2(
+        image, Path(args.volume) if args.volume else None, args.timeout, existing)),
+    "bossac": FlashMethod(DEFAULT_TOUCH_BAUD, lambda args, image, _: flash_bossac(
+        image, args.bootloader_port or args.port, args.timeout, args.port)),
+    "teensy": FlashMethod(TEENSY_TOUCH_BAUD, lambda args, image, _: flash_teensy(image, args.mcu, args.timeout)),
+}
+
+
+class TouchFlashError(Exception):
+    """ Raised when the board cannot be put into its bootloader or flashed """
+
+
+def touch(port: str, baud: int = DEFAULT_TOUCH_BAUD, settle: float = TOUCH_TIME, arm: float = ARM_TIME):
+    """ Switch a serial port to the touch baud rate, requesting that the board enter its bootloader
+
+    Each baud rate change sends the rate to the device (USB CDC SET_LINE_CODING). The port is first opened at another
+    rate and held there for longer than the device's poll period: the device acts only on a change to the touch rate,
+    and Linux sends no line coding when the port is already at the requested rate (as it is after an earlier touch).
+    The board reboots on its own, so the port usually disappears shortly after this call.
+
+    Args:
+        port: serial port of the running board (e.g. /dev/ttyACM0)
+        baud: touch baud rate
+        settle: seconds to hold the port at the touch rate before closing it
+        arm: seconds to hold the port at the other rate first; must exceed the device's poll period
+    """
+    arm_baud = ARM_BAUD if baud != ARM_BAUD else 2 * ARM_BAUD
+    LOGGER.info("Touching %s at %d baud (from %d baud)", port, baud, arm_baud)
+    try:
+        handle = serial.Serial(port, baudrate=arm_baud)
+    except serial.SerialException as exception:
+        raise TouchFlashError(f"Failed to open {port} for touch: {exception}") from exception
+    try:
+        time.sleep(arm)
+        handle.baudrate = baud
+    except (serial.SerialException, OSError) as exception:
+        handle.close()
+        raise TouchFlashError(f"Failed to set {port} to {baud} baud: {exception}") from exception
+    try:
+        time.sleep(settle)
+        handle.dtr = False
+    except (serial.SerialException, OSError):
+        # The board may already be rebooting and gone
+        pass
+    finally:
+        try:
+            handle.close()
+        except (serial.SerialException, OSError):
+            pass
+
+
+def _subdirectories(path: Path) -> List[Path]:
+    """ List the real (non-symlink) subdirectories of path, skipping any that cannot be read """
+    try:
+        children = list(path.iterdir())
+    except OSError:
+        return []
+    subdirectories = []
+    for child in children:
+        try:
+            if not child.is_symlink() and child.is_dir():
+                subdirectories.append(child)
+        except OSError:
+            continue
+    return subdirectories
+
+
+def _is_uf2_volume(path: Path) -> bool:
+    """ Check whether path holds a UF2 bootloader INFO file """
+    try:
+        return (path / UF2_INFO_FILE).is_file()
+    except OSError:
+        return False
+
+
+def find_uf2_volumes(roots: Iterable[str] = UF2_SEARCH_ROOTS) -> List[Path]:
+    """ Find mounted UF2 bootloader volumes (directories containing INFO_UF2.TXT) up to two levels below roots
+
+    Symbolic links and unreadable directories are skipped.
+    """
+    volumes = []
+    for root in roots:
+        root_path = Path(root)
+        if not root_path.is_dir():
+            continue
+        children = _subdirectories(root_path)
+        candidates = [root_path] + children + [grandchild for child in children for grandchild in _subdirectories(child)]
+        volumes.extend(candidate for candidate in candidates if _is_uf2_volume(candidate))
+    return volumes
+
+
+def wait_for(predicate, timeout: float, interval: float = 0.2):
+    """ Poll predicate until it returns a truthy value or timeout seconds elapse, returning its last result """
+    deadline = time.monotonic() + timeout
+    result = predicate()
+    while not result and time.monotonic() < deadline:
+        time.sleep(interval)
+        result = predicate()
+    return result
+
+
+def new_uf2_volumes(existing: Iterable[Path]) -> List[Path]:
+    """ Find UF2 volumes that are not in existing """
+    existing = set(existing)
+    return [volume for volume in find_uf2_volumes() if volume not in existing]
+
+
+def copy_image(image: Path, volume: Path) -> Path:
+    """ Copy image into volume without following a symbolic link at the destination """
+    destination = volume / image.name
+    descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0), 0o644)
+    with open(image, "rb") as source, os.fdopen(descriptor, "wb") as target:
+        shutil.copyfileobj(source, target)
+    return destination
+
+
+def flash_uf2(image: Path, volume: Optional[Path], timeout: float, existing: Iterable[Path] = ()) -> Path:
+    """ Copy a UF2 image onto the UF2 bootloader volume, waiting for the volume to be mounted
+
+    Args:
+        image: UF2 image to flash
+        volume: bootloader volume mount point, or None to search the usual mount locations
+        timeout: seconds to wait for the volume
+        existing: volumes mounted before the touch, which are ignored when searching
+    Returns:
+        volume the image was copied to
+    """
+    if image.suffix.lower() != ".uf2":
+        raise TouchFlashError(f"UF2 flashing requires a .uf2 image, got {image}")
+    if volume is not None:
+        found = volume if wait_for(lambda: _is_uf2_volume(volume), timeout) else None
+    else:
+        volumes = wait_for(lambda: new_uf2_volumes(existing), timeout)
+        if len(volumes) > 1:
+            raise TouchFlashError(f"Several UF2 volumes appeared ({', '.join(map(str, volumes))}), select one with --volume")
+        found = volumes[0] if volumes else None
+    if found is None:
+        raise TouchFlashError(f"No new UF2 bootloader volume appeared within {timeout}s (is it mounted?)")
+    LOGGER.info("Copying %s to %s", image, found)
+    copy_image(image, found)
+    os.sync()
+    return found
+
+
+def run_tool(command: List[str], timeout: float):
+    """ Run an external flashing tool, raising TouchFlashError on failure """
+    LOGGER.info("Running: %s", " ".join(command))
+    try:
+        subprocess.run(command, check=True, timeout=timeout)
+    except FileNotFoundError as exception:
+        raise TouchFlashError(f"{command[0]} not found on PATH") from exception
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exception:
+        raise TouchFlashError(f"{command[0]} failed: {exception}") from exception
+
+
+def flash_teensy(image: Path, mcu: str, timeout: float):
+    """ Flash a HEX image with teensy_loader_cli, waiting for the HalfKay bootloader """
+    run_tool(["teensy_loader_cli", f"--mcu={mcu}", "-w", "-v", str(image)], timeout)
+
+
+def flash_bossac(image: Path, bootloader_port: str, timeout: float, touched_port: Optional[str] = None):
+    """ Flash a BIN image with bossac once the BOSSA bootloader port is available
+
+    When the bootloader reuses the touched port, wait for the application's port to go away first.
+    """
+    if touched_port == bootloader_port:
+        if not wait_for(lambda: not Path(bootloader_port).exists(), timeout):
+            raise TouchFlashError(f"Port {bootloader_port} did not go away within {timeout}s after the touch: "
+                                  "is ZephyrTouchReset configured in the running software?")
+    if not wait_for(lambda: Path(bootloader_port).exists(), timeout):
+        raise TouchFlashError(f"Bootloader port {bootloader_port} did not appear within {timeout}s")
+    run_tool(["bossac", "-p", bootloader_port, "-e", "-w", "-v", "-R", str(image)], timeout)
+
+
+def touch_and_flash(args: argparse.Namespace):
+    """ Touch the port (unless skipped) then flash with the selected method """
+    image = Path(args.image)
+    if not image.is_file():
+        raise TouchFlashError(f"No such image: {image}")
+    # Check before touching: the touch leaves the board in its bootloader
+    method = METHODS.get(args.method)
+    if method is None:
+        raise TouchFlashError(f"No flashing implementation for method {args.method}")
+    # Without a touch the board is already in its bootloader, so its mounted UF2 volume is not stale
+    existing: List[Path] = []
+    if args.port is not None:
+        if args.method == "uf2" and not args.volume:
+            existing = find_uf2_volumes()
+        touch(args.port, args.touch_baud if args.touch_baud is not None else method.touch_baud)
+    method.flash(args, image, existing)
+
+
+def parse_args(arguments: Optional[List[str]] = None) -> argparse.Namespace:
+    """ Parse command line arguments for fprime-zephyr-flash """
+    parser = argparse.ArgumentParser(
+        description="Reboot a board into its bootloader with a baud rate touch, then flash an image",
+    )
+    parser.add_argument("image", help="Image to flash: .uf2 (uf2), .hex (teensy), or .bin (bossac)")
+    parser.add_argument("--method", choices=sorted(METHODS), default="uf2",
+                        help="uf2: RP2040/RP2350/nRF52/SAMD UF2 volume; teensy: teensy_loader_cli; bossac: SAMD BOSSA")
+    parser.add_argument("--port", default=None,
+                        help="Serial port of the running board to touch. Omit when already in the bootloader")
+    parser.add_argument("--touch-baud", type=int, default=None,
+                        help=f"Touch baud rate. Default: {TEENSY_TOUCH_BAUD} for teensy, {DEFAULT_TOUCH_BAUD} otherwise")
+    parser.add_argument("--volume", default=None,
+                        help="UF2 volume mount point. Default: search " + ", ".join(UF2_SEARCH_ROOTS))
+    parser.add_argument("--mcu", default="TEENSY41", help="teensy_loader_cli MCU. Default: TEENSY41")
+    parser.add_argument("--bootloader-port", default=None,
+                        help="bossac: serial port of the bootloader when it differs from --port")
+    parser.add_argument("--timeout", type=float, default=30.0, help="Seconds to wait for the bootloader. Default: 30")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Log progress")
+    args = parser.parse_args(arguments)
+    if args.method == "bossac" and args.port is None and args.bootloader_port is None:
+        parser.error("bossac requires --port or --bootloader-port")
+    return args
+
+
+def main(arguments: Optional[List[str]] = None) -> int:
+    """ Entry point for fprime-zephyr-flash """
+    args = parse_args(arguments)
+    logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(message)s")
+    try:
+        touch_and_flash(args)
+    except TouchFlashError as exception:
+        print(f"[ERROR] {exception}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

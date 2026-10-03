@@ -109,6 +109,42 @@ public:
         return old;
     }
 
+    T fetch_or(T arg, memory_order order = memory_order_seq_cst) noexcept {
+        k_spinlock_key_t key = k_spin_lock(&m_lock);
+        T old = m_value;
+        m_value = static_cast<T>(m_value | arg);
+        k_spin_unlock(&m_lock, key);
+        return old;
+    }
+
+    T fetch_and(T arg, memory_order order = memory_order_seq_cst) noexcept {
+        k_spinlock_key_t key = k_spin_lock(&m_lock);
+        T old = m_value;
+        m_value = static_cast<T>(m_value & arg);
+        k_spin_unlock(&m_lock, key);
+        return old;
+    }
+
+    T fetch_xor(T arg, memory_order order = memory_order_seq_cst) noexcept {
+        k_spinlock_key_t key = k_spin_lock(&m_lock);
+        T old = m_value;
+        m_value = static_cast<T>(m_value ^ arg);
+        k_spin_unlock(&m_lock, key);
+        return old;
+    }
+
+    // k_spin_lock says "the calling thread is guaranteed not to be suspended or
+    // interrupted on its current CPU until it calls k_spin_unlock()"
+    //
+    // This implies that k_spin_lock on Zephyr meets the lock free guarantee as
+    // forward process can be made.
+    bool is_lock_free() const noexcept {
+        return true;
+    }
+
+    // See is_lock_free() for an explaination.
+    static constexpr bool is_always_lock_free = true;
+
     T operator++() noexcept {
         return fetch_add(1) + 1;
     }

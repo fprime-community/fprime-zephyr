@@ -20,5 +20,6 @@ register_fprime_config(
         # Can remain stubs for now
         Os_Cpu_Stub
         Os_Memory_Stub
+        Os_CountingSemaphore_Stub
     INTERFACE # No buildable files generated
 )

@@ -106,6 +106,14 @@ register_fprime_zephyr_deployment(
 > [!TIP]
 > This will add `Main.cpp` to the Zephyr `app` target source list and sets up the topology module as a dependency.
 
+## FatFs Long File Names
+
+When a deployment sets `CONFIG_FS_FATFS_LFN_MODE_HEAP=y` (needed with `CONFIG_FS_FATFS_REENTRANT=y` unless
+`LFN_MODE_STACK` is used), fprime-zephyr serves FatFs long-filename buffers from a static pool instead of `k_malloc`
+by wrapping `ff_memalloc`/`ff_memfree` at link time. See the
+[FatFilenameAllocator SDD](./fprime-zephyr/Fs/FatFilenameAllocator/docs/sdd.md) for configuration, sizing, the
+`CONFIG_LTO` incompatibility, and the `-DFPRIME_ZEPHYR_FAT_FILENAME_ALLOCATOR=OFF` opt-out.
+
 ## Build
 
 In order to build with F Prime Zephyr, users must specify the `BOARD` environment variable (used by Zephyr) and the `zephyr` toolchain used by F Prime.
@@ -114,3 +122,20 @@ In order to build with F Prime Zephyr, users must specify the `BOARD` environmen
 fprime-util generate -DBOARD=rpi_pico2/rp2350a/m33 zephyr
 fprime-util build zephyr
 ```
+
+## Flashing Over USB (Touch Reset)
+
+Deployments may instantiate the opt-in `Zephyr.ZephyrTouchReset` component so that the host can reboot the board into its
+bootloader by switching the USB CDC ACM port to a "touch" baud rate (1200 for RP2040/RP2350, SAMD, and nRF52 UF2 boards;
+134 for Teensy 4.x). The `fprime-zephyr-flash` tool from the `ci` package then touches the port and flashes the image:
+
+```bash
+# fprime-zephyr-flash needs only pyserial; --no-deps skips the CI-only fprime-ci dependency. Use a separate virtual
+# environment: without fprime-ci, the package's fprime-gds CI plugins fail to load in the GDS environment
+python3 -m venv flash-venv && . flash-venv/bin/activate
+pip install pyserial
+pip install --no-deps ./lib/fprime-zephyr/ci
+fprime-zephyr-flash --port /dev/ttyACM0 build-fprime-automatic-zephyr/zephyr/zephyr.uf2
+```
+
+See the [ZephyrTouchReset SDD](fprime-zephyr/Svc/ZephyrTouchReset/docs/sdd.md) for set-up and supported platforms.

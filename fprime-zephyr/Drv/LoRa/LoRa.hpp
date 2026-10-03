@@ -54,6 +54,13 @@ class LoRa final : public LoRaComponentBase {
                         Fw::Buffer& data,
                         const ComCfg::FrameContext& context) override;
 
+    //! Handler implementation for run
+    //!
+    //! Re-arms receive once a continuous wave has finished
+    void run_handler(FwIndexType portNum,  //!< The port number
+                     U32 context           //!< The call order
+                     ) override;
+
     //! Handler implementation for dataReturnIn
     //!
     //! Port receiving back ownership of buffer sent out on dataOut
@@ -68,7 +75,7 @@ class LoRa final : public LoRaComponentBase {
 
     //! Handler implementation for command CONTINUOUS_WAVE
     //!
-    //! No-op command
+    //! Start a continuous wave for the supplied number of seconds
     void CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode,  //!< The opcode
                                     U32 cmdSeq,           //!< The command sequence number
                                     U16 seconds) override;
@@ -85,9 +92,14 @@ class LoRa final : public LoRaComponentBase {
     //! Start/stop transmission on the LoRa module
     void TRANSMIT_cmdHandler(FwOpcodeType opCode,  //!< The opcode
                              U32 cmdSeq,           //!< The command sequence number
-                             TransmitState enabled) override;
+                             const TransmitState& enabled) override;
 
   private:
+    //! Re-arm receive if the active continuous wave has ended
+    //!
+    //! \return true while a continuous wave is still active
+    bool updateContinuousWave();
+
     U8 m_send_buffer[LoRa::MAX_PACKET_SIZE];  //!< Buffer for sending data (max LoRa packet size)
     //! Process received data
     //!
@@ -101,6 +113,8 @@ class LoRa final : public LoRaComponentBase {
     const struct device* m_lora_device;
     Zephyr::TransmitState m_transmit_enabled;  //!< Transmit enabled state
     Os::Mutex m_mutex;  //!< Mutex for thread safety
+    bool m_cw_active = false;  //!< Continuous wave in progress
+    Fw::Time m_cw_end;         //!< Time after which receive is re-armed
 
     FwSizeType m_bytes_sent = 0;     //!< Total bytes sent telemetry
     FwSizeType m_bytes_received = 0; //!< Total bytes received telemetry
