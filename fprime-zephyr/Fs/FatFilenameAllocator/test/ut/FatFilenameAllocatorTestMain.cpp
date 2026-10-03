@@ -26,15 +26,15 @@ constexpr FwSizeType TEST_SLOT_BYTES = 1120U;
 constexpr FwSizeType TEST_SLOT_COUNT = 4U;
 using TestPool = Zephyr::FatFilenameAllocator<TEST_SLOT_BYTES, TEST_SLOT_COUNT, HostMutexPolicy>;
 
-//! Literal lock policy: lets the pool be declared constexpr below
+//! Literal lock policy: lets the pool be constructed in a constant expression below
 struct NoLockPolicy {
     struct Lock {};
     struct Guard {
         explicit constexpr Guard(Lock&) {}
     };
 };
-// Fails to compile if default construction of the pool stops being a constant initialization (FZFA-007)
-constexpr Zephyr::FatFilenameAllocator<TEST_SLOT_BYTES, TEST_SLOT_COUNT, NoLockPolicy> CONSTANT_INIT_PROBE{};
+static_assert((Zephyr::FatFilenameAllocator<TEST_SLOT_BYTES, TEST_SLOT_COUNT, NoLockPolicy>(), true),
+              "Pool default construction must be a constant initialization (FZFA-007)");
 
 //! Records asserts instead of aborting so that the asserting path and pool state can be checked
 class RecordingAssertHook : public Fw::AssertHook {

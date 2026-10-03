@@ -57,11 +57,12 @@ A slot is held only for the duration of one FatFs call that needs the LFN buffer
 the number of open files (`CONFIG_FS_FATFS_NUM_FILES`): an open file holds no slot.
 
 With `CONFIG_FS_FATFS_REENTRANT=y`, FatFs takes a slot only while it holds the volume mutex, so at most one slot per
-mounted FAT volume is in use at a time. The count needed is the smaller of the number of mounted FAT volumes and the
-number of threads that call FatFs. A single-volume deployment (one SD card) needs 1 slot; the default of 4 leaves
-margin for additional volumes. The build fails if the count is below `FF_VOLUMES` (the number of FatFs disks in the
-devicetree), which guarantees the pool cannot be exhausted by FatFs's own calls. Without `CONFIG_FS_FATFS_REENTRANT`, use the number of threads that may call FatFs at
-the same time. An application calling `f_fdisk(..., NULL)` directly can take one more slot (see below).
+mounted FAT volume is in use at a time. The build therefore requires the count to be at least `FF_VOLUMES`, which
+Zephyr sets to the number of enabled FatFs disk nodes in the devicetree (or `CONFIG_FS_FATFS_CUSTOM_MOUNT_POINT_COUNT`),
+whether or not each is mounted. With that, FatFs's own calls cannot exhaust the pool. A board with one SD card disk
+node (PROVES: `FF_VOLUMES = 1`) can use 1 slot; the default of 4 builds for up to four disk nodes. Without
+`CONFIG_FS_FATFS_REENTRANT`, use the number of threads that may call FatFs at the same time. An application calling
+`f_fdisk(..., NULL)` directly takes one more slot, outside the volume mutex (see below).
 
 When every slot is in use, the call fails with `FR_NOT_ENOUGH_CORE` (Zephyr returns `-ENOMEM`) and the exhaustion
 counter is incremented.
@@ -109,14 +110,15 @@ Only exact-size requests are served, so each thread inside FatFs holds at most o
   size while it is larger than one sector. These requests are rejected (counted in `rejectedCount`) and FatFs falls
   back to clearing the cluster one sector at a time from the volume window. This is slower but correct.
 
-> [!WARNING]
-> That is one single-sector write per sector of the cleared cluster (64 for 32 KiB clusters, 256 for 128 KiB), made
-> with the volume mutex held, so every other FatFs call on that volume waits for the whole burst. Pre-create
-> directories, or budget this latency for components that create files.
 - `f_mkfs()` and `f_fdisk()` (`CONFIG_FS_FATFS_MULTI_PARTITION`) use `ff_memalloc` only when given no work buffer.
   Zephyr's `fs_mkfs` and mount-time format always pass one, and Zephyr never calls `f_fdisk`. An application calling
   `f_fdisk(..., NULL)` directly asks for `FF_MAX_SS` bytes; when that equals the slot size (exFAT off, `MAX_LFN=255`,
   512 B sectors) the request takes a pool slot for the duration of the call.
+
+> [!WARNING]
+> The `dir_clear()` fallback makes one single-sector write per sector of the cleared cluster (with 512 B sectors: 64
+> for 32 KiB clusters, 256 for 128 KiB) with the volume mutex held, so every other FatFs call on that volume waits for
+> the whole burst. Pre-create directories, or budget this latency for components that create files.
 
 ## Inspecting the pool
 
@@ -138,9 +140,21 @@ const Zephyr::FatFilenameAllocatorStats stats = Zephyr::FprimeZephyrFatFilenameA
 A non-zero `exhaustedCount` means the slot count is too small for the deployment.
 
 The accessor and its module exist only when the pool is installed (Zephyr platform, `CONFIG_FS_FATFS_LFN_MODE_HEAP=y`
-and `FPRIME_ZEPHYR_FAT_FILENAME_ALLOCATOR=ON`). Code that calls it must be built under the same condition, e.g. guard
-it with `#if defined(CONFIG_FS_FATFS_LFN_MODE_HEAP)` and depend on `fprime-zephyr_Fs_FatFilenameAllocator` only when the
-module target exists.
+and `FPRIME_ZEPHYR_FAT_FILENAME_ALLOCATOR=ON`). The module target exports the compile definition
+`FPRIME_ZEPHYR_FAT_FILENAME_ALLOCATOR_INSTALLED=1` to its dependents. A caller depends on it only when it exists and
+guards the call with that definition:
+
+```cmake
+if (TARGET fprime-zephyr_Fs_FatFilenameAllocator)
+    target_link_libraries("${FPRIME_CURRENT_MODULE}" PRIVATE fprime-zephyr_Fs_FatFilenameAllocator)
+endif()
+```
+
+```cpp
+#ifdef FPRIME_ZEPHYR_FAT_FILENAME_ALLOCATOR_INSTALLED
+    const Zephyr::FatFilenameAllocatorStats stats = Zephyr::FprimeZephyrFatFilenameAllocator::getStats();
+#endif
+```
 
 ## Design
 
@@ -164,7 +178,7 @@ GNU ld `--wrap=ff_memalloc` sends every call to `ff_memalloc` from another objec
 `ff_mutex_*` functions that `FS_FATFS_REENTRANT` needs) but is no longer referenced, so section garbage collection
 drops it from the image. Zephyr has no Kconfig or CMake option to leave out only its allocator.
 
-The slot size reproduces the request computed by the private `INIT_NAMBUF`/`MAXDIRB` macros in `ff.c`, which `<ff.h>`
+The slot size reproduces the request computed by the private `INIT_NAMEBUFF`/`MAXDIRB` macros in `ff.c`, which `<ff.h>`
 does not export. A `static_assert` on `FF_DEFINED` pins the FatFs revision this was checked against (R0.16, `80386`),
 so a Zephyr upgrade that changes FatFs fails the build until the size is re-verified and the assertion updated.
 
@@ -190,8 +204,10 @@ Configure with `-DFPRIME_ZEPHYR_FAT_FILENAME_ALLOCATOR=OFF` to keep the previous
 | FZFA-004 | Requests of any other size shall return `nullptr` and be counted as rejected. | Unit test |
 | FZFA-005 | Releasing a pointer that is not an allocated slot start shall assert; releasing `nullptr` shall have no effect. | Unit test |
 | FZFA-006 | The pool shall provide its slot count, slot size, in-use count, high-water mark, exhaustion count and rejected count. | Unit test |
-| FZFA-007 | The pool shall use no dynamic memory and no startup constructor. | Inspection, symbol inspection |
+| FZFA-007 | The pool shall use no dynamic memory and no startup constructor. | Inspection, symbol inspection, `static_assert` (Zephyr build and unit test) |
 | FZFA-008 | Concurrent allocation and release shall never hand one slot to two callers. | Unit test |
+| FZFA-009 | With `CONFIG_FS_FATFS_REENTRANT=y`, the build shall fail if the slot count is below `FF_VOLUMES`. | `static_assert` |
+| FZFA-010 | The build shall fail if the FatFs revision differs from the one the slot size was verified against. | `static_assert` on `FF_DEFINED` |
 
 ## Unit tests
 

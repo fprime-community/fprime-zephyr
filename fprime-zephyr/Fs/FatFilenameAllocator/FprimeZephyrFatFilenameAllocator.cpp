@@ -10,10 +10,11 @@
 #include "zephyr-config/FatFilenameAllocatorCfg.hpp"
 
 static_assert(FF_USE_LFN == 3, "FprimeZephyrFatFilenameAllocator requires CONFIG_FS_FATFS_LFN_MODE_HEAP");
-// The slot size below mirrors the private INIT_NAMBUF / MAXDIRB macros of ff.c at this FatFs revision (R0.16)
-static_assert(FF_DEFINED == 80386, "FatFs revision changed: re-verify the slot size against INIT_NAMBUF in ff.c");
+// The slot size below mirrors the private INIT_NAMEBUFF / MAXDIRB macros of ff.c at this FatFs revision (R0.16)
+static_assert(FF_DEFINED == 80386, "FatFs revision changed: re-verify the slot size against INIT_NAMEBUFF in ff.c");
 #if FF_FS_REENTRANT
-// FatFs holds the volume mutex while it holds a slot, so FF_VOLUMES slots make exhaustion impossible
+// FatFs holds the volume mutex while it holds a slot, so FF_VOLUMES slots cover every FatFs call except an
+// application f_fdisk(..., NULL) (see docs/sdd.md)
 static_assert(FatFilenameAllocatorConfig::FPRIME_ZEPHYR_FAT_FILENAME_SLOTS >= FF_VOLUMES,
               "FPRIME_ZEPHYR_FAT_FILENAME_SLOTS must be at least the number of FatFs volumes (FF_VOLUMES)");
 #endif
@@ -21,10 +22,10 @@ static_assert(FatFilenameAllocatorConfig::FPRIME_ZEPHYR_FAT_FILENAME_SLOTS >= FF
 namespace Zephyr {
 namespace {
 
-//! UTF-16 long-filename buffer requested by FatFs's INIT_NAMBUF
+//! UTF-16 long-filename buffer requested by FatFs's INIT_NAMEBUFF
 constexpr FwSizeType LFN_BUFFER_BYTES = (static_cast<FwSizeType>(FF_MAX_LFN) + 1U) * sizeof(WCHAR);
 #if FF_FS_EXFAT
-//! exFAT directory-entry block appended by INIT_NAMBUF; mirrors MAXDIRB(FF_MAX_LFN) in ff.c (SZDIRE = 32)
+//! exFAT directory-entry block appended by INIT_NAMEBUFF; mirrors MAXDIRB(FF_MAX_LFN) in ff.c (SZDIRE = 32)
 constexpr FwSizeType EXFAT_DIR_BLOCK_BYTES = ((static_cast<FwSizeType>(FF_MAX_LFN) + 44U) / 15U) * 32U;
 #else
 constexpr FwSizeType EXFAT_DIR_BLOCK_BYTES = 0U;
@@ -51,8 +52,8 @@ using Pool = FatFilenameAllocator<LFN_BUFFER_BYTES + EXFAT_DIR_BLOCK_BYTES,
                                   ZephyrSpinLockPolicy>;
 
 //! Constant-initialized: lives in .bss and needs no startup constructor
-static_assert((Pool(), true), "Pool must be constant-initializable (no startup constructor)");
 Pool s_pool;
+static_assert((Pool(), true), "Pool must be constant-initializable (no startup constructor)");
 
 }  // namespace
 

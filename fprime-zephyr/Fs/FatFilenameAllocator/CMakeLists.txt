@@ -24,6 +24,8 @@ if (FPRIME_PLATFORM STREQUAL "Zephyr")
                 kernel
                 ELMFAT
         )
+        # Lets code that calls getStats() test whether the pool is installed
+        target_compile_definitions("${FPRIME_CURRENT_MODULE}" INTERFACE FPRIME_ZEPHYR_FAT_FILENAME_ALLOCATOR_INSTALLED=1)
         # Sub-builds have no Zephyr image to link into
         if (NOT FPRIME_IS_SUB_BUILD)
             if (NOT TARGET app)
