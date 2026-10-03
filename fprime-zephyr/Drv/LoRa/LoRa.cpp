@@ -40,7 +40,8 @@ void LoRa::receiveCallback(const struct device* dev, U8* data, U16 size, I16 rss
     lora_component->receive(data, size, rssi, snr);
 }
 
-LoRa ::LoRa(const char* const compName) : LoRaComponentBase(compName), m_transmit_enabled(TransmitState::DISABLED) {}
+LoRa ::LoRa(const char* const compName)
+    : LoRaComponentBase(compName), m_lora_device(nullptr), m_transmit_enabled(TransmitState::DISABLED) {}
 
 LoRa ::~LoRa() {}
 
