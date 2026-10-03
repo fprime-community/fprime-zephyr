@@ -47,7 +47,7 @@ Projects that override `LoRaCfg.hpp` must define MIN_FREQUENCY and MAX_FREQUENCY
 | Name | Description |
 |------|---|
 | CONTINUOUS_WAVE | Start a continuous wave for a supplied duration and respond immediately. Receive is re-armed by `run` once the wave ends; transmissions are dropped and further `CONTINUOUS_WAVE` commands return BUSY until then. The wave is transmitted at the current frequency |
-| SET_FREQ | Retune receive, transmit, and continuous wave to the supplied frequency in Hz. Returns VALIDATION_ERROR outside MIN_FREQUENCY to MAX_FREQUENCY, BUSY during a continuous wave, and EXECUTION_ERROR (keeping and re-arming receive at the previous frequency) if the radio rejects it. Not persisted: the radio returns to FREQUENCY on reboot. On SX126x radios, image calibration is not rerun for a different band |
+| SET_FREQ | Retune receive, transmit, and continuous wave to the supplied frequency in Hz. Returns VALIDATION_ERROR outside MIN_FREQUENCY to MAX_FREQUENCY, BUSY during a continuous wave, and EXECUTION_ERROR (keeping and re-arming receive at the previous frequency) if the radio rejects it. Not persisted: the radio returns to FREQUENCY on reboot. On SX126x radios, whether image calibration is rerun for a different band depends on the Zephyr driver backend |
 
 ## Parameters
 
