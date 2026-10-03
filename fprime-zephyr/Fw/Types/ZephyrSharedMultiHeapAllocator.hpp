@@ -25,7 +25,8 @@ class ZephyrSharedMultiHeapAllocator : public Fw::MemAllocator {
 
     enum Status {
         OP_OK,            //!< Region added
-        INVALID_REGION,   //!< Region is null, too small, too large for sys_heap, or overlaps a region from addRegion()
+        INVALID_REGION,   //!< Region is null, too small, too large, overlaps an addRegion() region, or Zephyr rejected
+                          //!< it
         INVALID_ATTR,     //!< Attribute is out of range
         NO_MORE_REGIONS,  //!< MAX_REGIONS added through addRegion() (board/SoC regions not counted) or attribute full
     };
