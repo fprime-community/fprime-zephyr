@@ -58,18 +58,7 @@ LoRa::Status LoRa ::start(const struct device* lora_device, const TransmitState&
         return LoRa::Status::ERROR;
     }
     // On start, if the transmit is enabled then start the com status ping-pong transmit protocol
-    this->m_transmit_enabled = transmit_enabled;
-    if (transmit_enabled == TransmitState::ENABLED) {
-        Fw::Success status = Fw::Success::SUCCESS;
-        this->comStatusOut_out(0, status);
-
-        if (!this->m_lora_ever_on) {
-            this->m_lora_ever_on = true;
-            if (this->isConnected_loraFirstStart_OutputPort(0)) {
-                this->loraFirstStart_out(0);
-            }
-        }
-    }
+    this->setTransmitState(transmit_enabled);
 
     return Status::SUCCESS;
 }
