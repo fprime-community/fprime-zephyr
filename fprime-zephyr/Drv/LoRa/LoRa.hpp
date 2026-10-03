@@ -78,7 +78,7 @@ class LoRa final : public LoRaComponentBase {
     //! Start/stop transmission on the LoRa module
     void TRANSMIT_cmdHandler(FwOpcodeType opCode,  //!< The opcode
                              U32 cmdSeq,           //!< The command sequence number
-                             TransmitState enabled) override;
+                             const TransmitState& enabled) override;
 
   private:
     U8 m_send_buffer[LoRa::MAX_PACKET_SIZE];  //!< Buffer for sending data (max LoRa packet size)
