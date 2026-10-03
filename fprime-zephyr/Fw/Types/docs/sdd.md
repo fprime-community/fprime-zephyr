@@ -57,6 +57,9 @@ void setupMemory(U8* const psram, const FwSizeType psramSize) {
   within the limit.
 - Regions must be at least `ZephyrSharedMultiHeapAllocator::MIN_REGION_SIZE` bytes and remain valid for the lifetime of
   the program. Regions overlapping one already added through `addRegion()` are rejected with `INVALID_REGION`.
+- With `CONFIG_SYS_HEAP_SMALL_ONLY=y` (Zephyr's default when `CONFIG_SRAM_SIZE` is 256 KiB or less), each region is
+  limited to about 256 KiB; larger regions, such as most PSRAM, are rejected with `INVALID_REGION`. Select
+  `CONFIG_SYS_HEAP_AUTO` or `CONFIG_SYS_HEAP_BIG_ONLY` to add them.
 
 > [!WARNING]
 > `sys_heap` bounds its free-list search with `CONFIG_SYS_HEAP_ALLOC_LOOPS` (default 3) to keep allocation time
@@ -75,5 +78,6 @@ masks interrupts for one allocator call; a failing `allocate()` searches every r
 > [!IMPORTANT]
 > Zephyr code calling `shared_multi_heap_*` directly (e.g. display or video drivers) is **not** serialized with these
 > allocators. Concurrent access silently corrupts heap metadata; with `CONFIG_ASSERT=y` it may later be caught by a
-> `sys_heap` assertion. Drivers that allocate during boot (before `main()`) are safe. Drivers that allocate at run time
-> must not do so while F Prime is allocating, e.g. defer them until F Prime setup has completed.
+> `sys_heap` assertion. Drivers that allocate and free only during boot (before `main()`) are safe. Drivers that allocate
+> or free at run time must not do so while F Prime is allocating or deallocating, e.g. defer them until F Prime setup
+> has completed.

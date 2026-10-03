@@ -20,7 +20,7 @@ constexpr FwSizeType MAX_CHUNKS = 0x7fffU;
 constexpr FwSizeType MAX_CHUNKS = 0x7fffffffU;
 #endif
 
-//! Address range of a region already added to the pool
+//! Address range [start, end) of a heap region
 struct Range {
     uintptr_t start;
     uintptr_t end;
@@ -43,7 +43,7 @@ Range toRange(const Fw::ByteArray& region) {
 
 //! True when an allocate() request can be passed to Zephyr unchanged; asserts alignment is a power of two
 bool isAllocatable(const FwSizeType size, const FwSizeType alignment) {
-    FW_ASSERT((alignment & (alignment - 1)) == 0, static_cast<FwAssertArgType>(alignment));
+    FW_ASSERT((alignment != 0) and ((alignment & (alignment - 1)) == 0), static_cast<FwAssertArgType>(alignment));
     return (size > 0) and (size <= std::numeric_limits<size_t>::max()) and
            (alignment <= std::numeric_limits<size_t>::max());
 }
