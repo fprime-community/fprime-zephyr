@@ -72,6 +72,17 @@ register_fprime_implementation(
     "${CMAKE_CURRENT_LIST_DIR}/snprintk.cpp"
 )
 
+register_fprime_module(
+    Zephyr_KmallocAllocator
+  SOURCES
+    "${CMAKE_CURRENT_LIST_DIR}/KmallocAllocator.cpp"
+  HEADERS
+    "${CMAKE_CURRENT_LIST_DIR}/KmallocAllocator.hpp"
+  DEPENDS
+    Fw_Types
+    kernel
+)
+
 # Create a new File implementation that uses the File.cpp from the fprime posix implementation but provides alternate
 # Directory and FileSystem implementations to work with Zephyr's subset of POSIX.
 #
