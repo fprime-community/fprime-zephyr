@@ -24,13 +24,15 @@ no other work item blocking that queue.
 The bootloader is entered when the baud rate *changes* to the touch baud rate and stays there for two consecutive polls:
 a reading of the touch baud rate takes effect only after a different baud rate has been observed since `configure()`,
 and only when the next poll reads the touch baud rate again. A touch therefore takes up to two poll periods (200 ms by
-default) to take effect. `configure()` asserts that the poll period is between 20 ms and 1000 ms: shorter periods
-could read the replay described below on two consecutive polls, and longer ones delay the touch beyond the host tools'
-wait for the port to go away.
+default) to take effect. `configure()` asserts that the poll period is between 20 ms and 1000 ms. At 1000 ms a touch
+takes at most 2 s, within the 5 s the CI `touch-baud` key waits for the port to go away.
 
-The second reading is needed because Linux saves a port's baud rate, and when a tool opens the port it first re-sends the
-saved rate (for example 1200 after a touch) before the tool applies its own rate. That replay lasts far less than a poll
-period. The edge trigger only ignores a touch baud rate the device already reports at its first poll: the USB CDC ACM
+The second reading is needed because Linux saves a port's baud rate, and when a tool opens the port it first re-sends
+the saved rate (for example 1200 after a touch) before the tool applies its own rate. That replay normally lasts far
+less than a poll period, but it is ignored only when the opening tool applies its own rate within one poll period P. A
+tool that takes longer (for example a stalled process on a loaded host) enters the bootloader with probability (delay -
+P) / P, and always once the delay reaches 2P. Keep the 100 ms default unless the hosts that open the port are known to
+be fast. The edge trigger only ignores a touch baud rate the device already reports at its first poll: the USB CDC ACM
 line coding starts at 115200 and the Linux `cdc-acm` driver sets 9600 when the device enumerates, so the component is
 normally armed before any host opens the port. So:
 
@@ -79,7 +81,7 @@ bootloader. The log message still names the built-in `METHOD`.
     ```
 
     `configure()` takes optional arguments: the touch baud rate, a custom entry function, and the poll period
-    (default 100 ms). It returns `Fw::Success::FAILURE` and does not monitor when the device is not ready or
+    (default 100 ms, asserted to be within 20 to 1000 ms; see Design). It returns `Fw::Success::FAILURE` and does not monitor when the device is not ready or
     `uart_line_ctrl_get(UART_LINE_CTRL_BAUD_RATE)` fails, for example because `CONFIG_UART_LINE_CTRL` is disabled or the
     driver cannot report its baud rate. Calling `configure()` again stops any earlier monitoring first.
 

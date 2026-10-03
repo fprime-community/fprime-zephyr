@@ -18,9 +18,11 @@ class ZephyrTouchReset final : public ZephyrTouchResetComponentBase {
   public:
     //! Default period between baud rate checks
     static constexpr U32 DEFAULT_POLL_PERIOD_MS = 100;
-    //! Shorter periods could read the host's brief replay of a saved touch baud rate on two consecutive polls
+    //! The host's replay of a saved touch baud rate on port open is ignored only when the opening tool sets its own
+    //! rate within one poll period; 20 ms leaves margin for that while rejecting periods short enough to read it twice
     static constexpr U32 MIN_POLL_PERIOD_MS = 20;
-    //! Longer periods delay the touch beyond the host tools' wait for the port to go away
+    //! A touch takes effect in one to two poll periods; 1000 ms (at most 2 s) stays within the CI plugin's 5 s wait
+    //! for the port to go away (ZephyrCiBase.TOUCH_DISCONNECT_TIMEOUT)
     static constexpr U32 MAX_POLL_PERIOD_MS = 1000;
 
     // ----------------------------------------------------------------------

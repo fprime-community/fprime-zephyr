@@ -55,6 +55,27 @@ def test_default_touch_baud(tmp_path, method, baud):
     touch_mock.assert_called_once_with("/dev/ttyACM0", baud)
 
 
+def test_methods_route_arguments(tmp_path):
+    binary = tmp_path / "zephyr.bin"
+    binary.write_bytes(b"")
+    uf2_image = tmp_path / "zephyr.uf2"
+    uf2_image.write_bytes(b"")
+    with mock.patch.object(touch, "touch"), \
+            mock.patch.object(touch, "flash_bossac") as bossac_mock, \
+            mock.patch.object(touch, "find_uf2_volumes") as find_mock, \
+            mock.patch.object(touch, "flash_uf2") as uf2_mock:
+        touch.touch_and_flash(touch.parse_args([str(binary), "--method", "bossac", "--port", "/dev/ttyACM0",
+                                                "--timeout", "7"]))
+        touch.touch_and_flash(touch.parse_args([str(binary), "--method", "bossac", "--port", "/dev/ttyACM0",
+                                                "--bootloader-port", "/dev/ttyACM1"]))
+        touch.touch_and_flash(touch.parse_args([str(uf2_image), "--port", "/dev/ttyACM0",
+                                                "--volume", str(tmp_path / "V")]))
+    assert bossac_mock.call_args_list == [mock.call(binary, "/dev/ttyACM0", 7.0, "/dev/ttyACM0"),
+                                          mock.call(binary, "/dev/ttyACM1", 30.0, "/dev/ttyACM0")]
+    find_mock.assert_not_called()
+    uf2_mock.assert_called_once_with(uf2_image, tmp_path / "V", 30.0, [])
+
+
 def test_touch_baud_override_and_no_port(tmp_path):
     image = tmp_path / "zephyr.hex"
     image.write_bytes(b"")

@@ -44,8 +44,10 @@ def test_preload_touches_and_warns_when_port_stays(zephyr_ci, tmp_path, caplog):
     plugin.subprocess.return_value = (None, None, (None, None))
     with mock.patch.object(zephyr_ci, "touch", order.touch), \
             mock.patch.object(zephyr_ci.ZephyrCiBase, "TOUCH_DISCONNECT_TIMEOUT", 0.2), \
+            mock.patch.object(zephyr_ci, "wait_for", wraps=zephyr_ci.wait_for) as wait_mock, \
             caplog.at_level(logging.WARNING):
         plugin.preload({"touch-baud": 1200, "flash-command": ["true"]})
+    assert wait_mock.call_args.kwargs["timeout"] == 0.2
     assert order.mock_calls == [mock.call.touch(str(port), 1200), mock.call.subprocess(["true"])]
     assert "still present 0.2 s" in caplog.text
 

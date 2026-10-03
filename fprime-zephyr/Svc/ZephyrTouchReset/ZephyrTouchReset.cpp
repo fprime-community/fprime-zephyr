@@ -66,6 +66,7 @@ Fw::Success ZephyrTouchReset ::configure(const struct device* device,
 
 void ZephyrTouchReset ::check() {
     if ((this->m_device == nullptr) || !device_is_ready(this->m_device)) {
+        this->m_touchSeen = false;
         return;
     }
     U32 baud = 0;

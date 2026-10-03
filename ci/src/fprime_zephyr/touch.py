@@ -29,7 +29,11 @@ UF2_SEARCH_ROOTS = ["/media", "/run/media", "/Volumes", "/mnt"]
 
 
 class FlashMethod(NamedTuple):
-    """ Touch baud rate and flashing function, called with (args, image, UF2 volumes present before the touch) """
+    """ Touch baud rate and flashing function, called with (args, image, existing)
+
+    existing lists the UF2 volumes mounted before the touch. It is filled only for uf2 with --port and without --volume,
+    and is empty otherwise (including when no touch is made), so it does not mean "nothing was mounted".
+    """
     touch_baud: int
     flash: Callable[[argparse.Namespace, Path, List[Path]], None]
 
