@@ -13,7 +13,7 @@ namespace Zephyr {
 namespace {
 //! Serializes access to the system-wide shared_multi_heap pool across allocator instances
 k_spinlock s_sharedLock;
-//! True once shared_multi_heap_pool_init() has run (here or in board/SoC code)
+//! True once ensurePoolReady() has confirmed the pool is initialized (by it or, via -EALREADY, by board/SoC code)
 bool s_poolReady = false;
 //! Regions added through addRegion(); Zephyr does not expose regions added by board/SoC code
 HeapRegion::Range s_ranges[ZephyrSharedMultiHeapAllocator::MAX_REGIONS];
@@ -65,6 +65,8 @@ ZephyrSharedMultiHeapAllocator::Status ZephyrSharedMultiHeapAllocator::addRegion
             s_regionCount++;
         } else if (addStatus == -ENOMEM) {
             status = NO_MORE_REGIONS;
+        } else {
+            status = INVALID_REGION;
         }
     }
     k_spin_unlock(&s_sharedLock, key);
@@ -77,8 +79,9 @@ void* ZephyrSharedMultiHeapAllocator::allocate(const FwEnumStoreType identifier,
                                                bool& recoverable,
                                                FwSizeType alignment) {
     (void)identifier;
+    recoverable = false;
     void* memory = nullptr;
-    if (HeapRegion::prepareAllocation(size, recoverable, alignment)) {
+    if (HeapRegion::isAllocatable(size, alignment)) {
         k_spinlock_key_t key = k_spin_lock(&s_sharedLock);
         ensurePoolReady();
         memory = shared_multi_heap_aligned_alloc(m_attr, static_cast<size_t>(alignment), static_cast<size_t>(size));

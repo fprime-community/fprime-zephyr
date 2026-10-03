@@ -36,7 +36,8 @@ class ZephyrMultiHeapAllocator : public Fw::MemAllocator {
     //! Construct an allocator owning an empty multi-heap
     ZephyrMultiHeapAllocator();
 
-    //! Construct an allocator wrapping an initialized multi-heap; cfg is passed to its choice function
+    //! Construct an allocator wrapping an initialized multi-heap; cfg is passed to its choice function.
+    //! The spinlock serializes only this instance: wrap a given multi-heap with at most one allocator.
     ZephyrMultiHeapAllocator(sys_multi_heap& multiHeap, void* cfg);
 
     ~ZephyrMultiHeapAllocator() override = default;

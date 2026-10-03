@@ -25,6 +25,13 @@ register_fprime_zephyr_deployment(
 )
 ```
 
+> [!WARNING]
+> `sys_heap` bounds its free-list search with `CONFIG_SYS_HEAP_ALLOC_LOOPS` (default 3) to keep allocation time
+> constant. In a fragmented region a request can therefore fail even though a fitting block exists, and callers using
+> `Fw::MemAllocator::checkedAllocate()` will assert. Perform assert-on-failure setup allocations before heap churn and
+> keep contiguous headroom in each region. Raising `CONFIG_SYS_HEAP_ALLOC_LOOPS` reduces such failures at the cost of a
+> longer search while the allocator's spinlock (interrupts masked) is held.
+
 ## ZephyrMultiHeapAllocator
 
 A default-constructed allocator owns its `sys_multi_heap` and a first-fit choice function. Up to
@@ -101,7 +108,8 @@ void setupMemory() {
 
 Zephyr's `sys_heap`, `sys_multi_heap`, and `shared_multi_heap` are not thread-safe. Each `ZephyrMultiHeapAllocator`
 uses its own spinlock, and all `ZephyrSharedMultiHeapAllocator` instances share one spinlock. The spinlock (rather than
-`Os::Mutex`) matches Zephyr's `k_heap` and allows use before `Os::init()`; it is held only for one heap operation.
+`Os::Mutex`, a `k_mutex`) matches Zephyr's `k_heap` and allows use from ISRs; it masks interrupts for one heap
+operation.
 
 The following are **not** serialized against these allocators: code calling the Zephyr APIs directly on the same heaps
 (e.g. drivers using `shared_multi_heap_alloc()` concurrently with F Prime), and a second `ZephyrMultiHeapAllocator`

@@ -61,8 +61,9 @@ void* ZephyrMultiHeapAllocator::allocate(const FwEnumStoreType identifier,
                                          bool& recoverable,
                                          FwSizeType alignment) {
     (void)identifier;
+    recoverable = false;
     void* memory = nullptr;
-    if (HeapRegion::prepareAllocation(size, recoverable, alignment)) {
+    if (HeapRegion::isAllocatable(size, alignment)) {
         k_spinlock_key_t key = k_spin_lock(&m_lock);
         memory = sys_multi_heap_aligned_alloc(&m_multiHeap, m_cfg, static_cast<size_t>(alignment),
                                               static_cast<size_t>(size));

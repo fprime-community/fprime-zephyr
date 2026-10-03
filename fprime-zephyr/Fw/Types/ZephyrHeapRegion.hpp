@@ -33,11 +33,13 @@ struct Range {
 inline bool isValid(const Fw::ByteArray& region) {
     return (region.bytes != nullptr) and (region.size >= MIN_REGION_SIZE) and
            (region.size <= std::numeric_limits<size_t>::max()) and ((region.size / CHUNK_UNIT) <= MAX_CHUNKS) and
+           // reinterpret_cast: address arithmetic on unrelated regions needs integers, not pointer comparisons
            (reinterpret_cast<uintptr_t>(region.bytes) <= (std::numeric_limits<uintptr_t>::max() - region.size));
 }
 
 //! Range covered by a valid region
 inline Range toRange(const Fw::ByteArray& region) {
+    // reinterpret_cast: ranges are compared as integers; shared_multi_heap_region::addr is also a uintptr_t
     const uintptr_t start = reinterpret_cast<uintptr_t>(region.bytes);
     return Range{start, start + static_cast<uintptr_t>(region.size)};
 }
@@ -51,9 +53,8 @@ inline bool overlapsAny(const Range& region, const Range* const ranges, const Fw
     return overlaps;
 }
 
-//! Common Fw::MemAllocator::allocate() pre-checks; true when the request can be passed to Zephyr unchanged
-inline bool prepareAllocation(const FwSizeType size, bool& recoverable, const FwSizeType alignment) {
-    recoverable = false;
+//! True when an allocate() request can be passed to Zephyr unchanged; asserts alignment is a power of two
+inline bool isAllocatable(const FwSizeType size, const FwSizeType alignment) {
     FW_ASSERT((alignment & (alignment - 1)) == 0, static_cast<FwAssertArgType>(alignment));
     return (size > 0) and (size <= std::numeric_limits<size_t>::max()) and
            (alignment <= std::numeric_limits<size_t>::max());
