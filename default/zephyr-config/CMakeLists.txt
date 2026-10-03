@@ -7,5 +7,6 @@ register_fprime_config(
     HEADERS
         "${CMAKE_CURRENT_LIST_DIR}/LoRaCfg.hpp"
         "${CMAKE_CURRENT_LIST_DIR}/ZephyrAllocator.hpp"
+        "${CMAKE_CURRENT_LIST_DIR}/FatFilenameAllocatorCfg.hpp"
     INTERFACE
 )
