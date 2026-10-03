@@ -32,6 +32,7 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 | run | Rate group input that re-arms receive once a continuous wave ends; connect it to a rate group |
 | enableTransmit | `Fw.Signal` input: enable LoRa transmission (starts com-status ping-pong) |
 | disableTransmit | `Fw.Signal` input: disable LoRa transmission (stops ping-pong via `DISABLING`) |
+| loraFirstStart | `Fw.Signal` output: emitted once, the first time transmit is enabled |
 
 
 ## Configuration
