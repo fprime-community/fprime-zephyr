@@ -17,8 +17,10 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 | LORA-05 | The LoRa component shall support the Svc.Com interface | Unit-Test |
 | LORA-06 | The LoRa component shall have a continuous wave command | Unit-Test |
 | LORA-07 | The LoRa component shall wrap the Zephyr LoRa driver | Unit-Test |
-| LORA-08 | The LoRa component shall configure the Zephyr LoRa driver for tranmit only when sending data | Unit-Test |
+| LORA-08 | The LoRa component shall configure the Zephyr LoRa driver for transmit only when sending data | Unit-Test |
 | LORA-09 | The LoRa component shall provide a command to change the carrier frequency, rejecting frequencies outside the configured MIN_FREQUENCY to MAX_FREQUENCY range | Inspection |
+| LORA-10 | The LoRa component shall expose enableTransmit and disableTransmit ports to control transmission | Unit-Test |
+| LORA-11 | The TRANSMIT command and enableTransmit/disableTransmit ports shall enable or disable the com-status ping-pong | Unit-Test |
 
 
 ## Port Interfaces
@@ -26,7 +28,11 @@ This is used as a radio in the F Prime communication stack transmitting via the 
 | Name | Description |
 |---|---|
 | Svc.Com | Interface to plug the radio into the communication stack |
+| Svc.BufferAllocation | Buffer allocation interface for received data |
 | run | Rate group input that re-arms receive once a continuous wave ends; connect it to a rate group |
+| enableTransmit | `Fw.Signal` input: enable LoRa transmission (starts com-status ping-pong) |
+| disableTransmit | `Fw.Signal` input: disable LoRa transmission (stops ping-pong via `DISABLING`) |
+| loraFirstStart | `Fw.Signal` output: emitted once, the first time transmit is enabled |
 
 
 ## Configuration
@@ -51,20 +57,25 @@ Projects that override `LoRaCfg.hpp` must define MIN_FREQUENCY and MAX_FREQUENCY
 |------|---|
 | CONTINUOUS_WAVE | Start a continuous wave for a supplied duration and respond immediately. Receive is re-armed by `run` once the wave ends; transmissions are dropped and further `CONTINUOUS_WAVE` commands return BUSY until then. The wave is transmitted at the current frequency |
 | SET_FREQ | Retune receive, transmit, and continuous wave to the supplied frequency in Hz. Returns VALIDATION_ERROR outside MIN_FREQUENCY to MAX_FREQUENCY, BUSY during a continuous wave, and EXECUTION_ERROR (keeping and re-arming receive at the previous frequency) if the driver reports an error. The driver does not check the radio's RF band, so MIN_FREQUENCY to MAX_FREQUENCY must lie within it. Not persisted: the radio returns to FREQUENCY on reboot. On SX126x radios, whether image calibration is rerun for a different band depends on the Zephyr driver backend |
+| TRANSMIT | Enable/disable transmission (com-status ping-pong). Runtime state may briefly be `DISABLING` while an in-flight send completes. |
 
 ## Parameters
 
 | Name | Description |
 |------|---|
-| DATA_RATE   | Spreading factor / data rate for radio |
-| CODING_RATE | Number of parity bits sent             |
+| DATA_RATE    | Spreading factor / data rate for radio |
+| CODING_RATE  | Number of parity bits sent             |
+| BANDWIDTH_TX | Bandwidth used when transmitting       |
+| BANDWIDTH_RX | Bandwidth used when receiving          |
 
 ## Telemetry
 
 | Name | Description |
 |---|---|
-| LastRssi | RSSI value of last receive |
-| LastSnr  | SNR value of last receive  |
+| BytesSent     | Total bytes sent |
+| BytesReceived | Total bytes received |
+| LastRssi      | RSSI value of last receive |
+| LastSnr       | SNR value of last receive  |
 
 ## Events
 
