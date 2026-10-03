@@ -7,12 +7,17 @@
 #include "fprime-zephyr/Drv/LoRa/LoRa.hpp"
 #include "zephyr-config/LoRaCfg.hpp"
 #include <Fw/Logger/Logger.hpp>
+#include <errno.h>
 namespace Zephyr {
 
 // Margin past a continuous wave's duration for the driver to release the modem
 static constexpr U32 CW_TEARDOWN_MARGIN_US = 250000;
 
-// Base configuration for the LoRa modem
+static_assert((0 < LoRaConfig::MIN_FREQUENCY) && (LoRaConfig::MIN_FREQUENCY <= LoRaConfig::FREQUENCY) &&
+                  (LoRaConfig::FREQUENCY <= LoRaConfig::MAX_FREQUENCY),
+              "LoRaConfig: FREQUENCY must lie within a non-zero MIN_FREQUENCY to MAX_FREQUENCY");
+
+// Active LoRa modem configuration; frequency is the current carrier set at boot or by SET_FREQ
 struct lora_modem_config BASE_CONFIG = {
     .frequency = LoRaConfig::FREQUENCY,
     .bandwidth = BW_125_KHZ,
@@ -35,7 +40,8 @@ void LoRa::receiveCallback(const struct device* dev, U8* data, U16 size, I16 rss
     lora_component->receive(data, size, rssi, snr);
 }
 
-LoRa ::LoRa(const char* const compName) : LoRaComponentBase(compName), m_transmit_enabled(TransmitState::DISABLED) {}
+LoRa ::LoRa(const char* const compName)
+    : LoRaComponentBase(compName), m_lora_device(nullptr), m_transmit_enabled(TransmitState::DISABLED) {}
 
 LoRa ::~LoRa() {}
 
@@ -198,7 +204,7 @@ void LoRa ::CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U16 seco
         if (status == Status::SUCCESS) {
             // lora_test_cw() returns immediately and holds the modem until the wave ends, so RX is re-armed later
             const int cw_status =
-                lora_test_cw(this->m_lora_device, LoRaConfig::FREQUENCY, LoRaConfig::TX_POWER, seconds);
+                lora_test_cw(this->m_lora_device, BASE_CONFIG.frequency, LoRaConfig::TX_POWER, seconds);
             if (cw_status == 0) {
                 const Fw::Time now = this->getTime();
                 this->m_cw_end = Fw::Time::add(now, Fw::Time(now.getTimeBase(), seconds, CW_TEARDOWN_MARGIN_US));
@@ -226,6 +232,39 @@ bool LoRa ::updateContinuousWave() {
         }
     }
     return this->m_cw_active;
+}
+
+void LoRa ::SET_FREQ_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 freq_hz) {
+    Os::ScopeLock lock(this->m_mutex);
+    FW_ASSERT(this->m_lora_device != nullptr);
+    Fw::CmdResponse response = Fw::CmdResponse::OK;
+    if ((freq_hz < LoRaConfig::MIN_FREQUENCY) || (freq_hz > LoRaConfig::MAX_FREQUENCY)) {
+        this->log_WARNING_LO_FrequencyOutOfRange(freq_hz, LoRaConfig::MIN_FREQUENCY, LoRaConfig::MAX_FREQUENCY);
+        response = Fw::CmdResponse::VALIDATION_ERROR;
+    } else if (this->updateContinuousWave()) {
+        response = Fw::CmdResponse::BUSY;
+    } else {
+        // -EINVAL means receive was not armed; retuning re-arms it, so only other errors stop the retune
+        const int cancel_status = lora_recv_async(this->m_lora_device, nullptr, nullptr);
+        if ((cancel_status != 0) && (cancel_status != -EINVAL)) {
+            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+            response = Fw::CmdResponse::EXECUTION_ERROR;
+        }
+    }
+    if (response == Fw::CmdResponse::OK) {
+        const U32 previous_freq = BASE_CONFIG.frequency;
+        BASE_CONFIG.frequency = freq_hz;
+        if (this->enableRx() == Status::SUCCESS) {
+            this->log_ACTIVITY_HI_FrequencySet(freq_hz);
+        } else {
+            BASE_CONFIG.frequency = previous_freq;
+            if (this->enableRx() != Status::SUCCESS) {
+                this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+            }
+            response = Fw::CmdResponse::EXECUTION_ERROR;
+        }
+    }
+    this->cmdResponse_out(opCode, cmdSeq, response);
 }
 
 void LoRa ::TRANSMIT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, const TransmitState& enabled) {
