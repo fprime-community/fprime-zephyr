@@ -7,6 +7,7 @@
 #include "fprime-zephyr/Drv/LoRa/LoRa.hpp"
 #include "zephyr-config/LoRaCfg.hpp"
 #include <Fw/Logger/Logger.hpp>
+#include <errno.h>
 namespace Zephyr {
 
 // Margin past a continuous wave's duration for the driver to release the modem
@@ -241,16 +242,20 @@ void LoRa ::SET_FREQ_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 freq_hz) {
         response = Fw::CmdResponse::VALIDATION_ERROR;
     } else if (this->updateContinuousWave()) {
         response = Fw::CmdResponse::BUSY;
-    } else if (lora_recv_async(this->m_lora_device, nullptr, nullptr) != 0) {
-        this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
-        response = Fw::CmdResponse::EXECUTION_ERROR;
     } else {
+        // -EINVAL means receive was not armed; retuning re-arms it, so only other errors stop the retune
+        const int cancel_status = lora_recv_async(this->m_lora_device, nullptr, nullptr);
+        if ((cancel_status != 0) && (cancel_status != -EINVAL)) {
+            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+            response = Fw::CmdResponse::EXECUTION_ERROR;
+        }
+    }
+    if (response == Fw::CmdResponse::OK) {
         const U32 previous_freq = BASE_CONFIG.frequency;
         BASE_CONFIG.frequency = freq_hz;
         if (this->enableRx() == Status::SUCCESS) {
             this->log_ACTIVITY_HI_FrequencySet(freq_hz);
         } else {
-            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
             BASE_CONFIG.frequency = previous_freq;
             if (this->enableRx() != Status::SUCCESS) {
                 this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
