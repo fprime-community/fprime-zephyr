@@ -90,6 +90,30 @@ def test_find_uf2_volumes_skips_unreadable(tmp_path):
     assert touch._subdirectories(tmp_path / "missing") == []
 
 
+def test_find_uf2_volumes_skips_child_that_cannot_be_stat(tmp_path):
+    volume = make_uf2_volume(tmp_path / "RPI-RP2")
+    (tmp_path / "locked").mkdir()
+    real_is_dir = touch.Path.is_dir
+
+    def is_dir(self):
+        if self.name == "locked":
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_is_dir(self)
+
+    with mock.patch.object(touch.Path, "is_dir", is_dir):
+        assert touch.find_uf2_volumes([str(tmp_path)]) == [volume]
+
+
+def test_unknown_method_fails_before_touch(tmp_path):
+    image = tmp_path / "zephyr.uf2"
+    image.write_bytes(b"UF2\n")
+    args = touch.parse_args([str(image), "--port", "/dev/ttyACM0"])
+    args.method = "dfu"
+    with mock.patch.object(touch, "touch") as touch_mock, pytest.raises(touch.TouchFlashError):
+        touch.touch_and_flash(args)
+    touch_mock.assert_not_called()
+
+
 def test_flash_uf2_ignores_existing_volume(tmp_path):
     stale = make_uf2_volume(tmp_path / "STALE")
     image = tmp_path / "zephyr.uf2"

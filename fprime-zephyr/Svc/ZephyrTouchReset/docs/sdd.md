@@ -21,11 +21,16 @@ Its independence from F Prime (ZephyrTouchReset-004) relies on the Zephyr system
 priority (`CONFIG_SYSTEM_WORKQUEUE_PRIORITY`, default -1), above the preemptible priorities used by F Prime tasks, and on
 no other work item blocking that queue.
 
-The bootloader is entered when the baud rate *changes* to the touch baud rate: a reading of the touch baud rate takes
-effect only after a different baud rate has been observed since `configure()`. This only ignores a touch baud rate the
-device already reports at its first poll. It does not stop a host from re-applying the touch baud rate after the board
-re-enumerates: the USB CDC ACM line coding starts at 115200, the Linux `cdc-acm` driver sets 9600 when the device
-enumerates, and Linux re-sends the port's saved baud rate on every open. So:
+The bootloader is entered when the baud rate *changes* to the touch baud rate and stays there for two consecutive polls:
+a reading of the touch baud rate takes effect only after a different baud rate has been observed since `configure()`,
+and only when the next poll reads the touch baud rate again. A touch therefore takes up to two poll periods (200 ms by
+default) to take effect.
+
+The second reading is needed because Linux saves a port's baud rate, and when a tool opens the port it first re-sends the
+saved rate (for example 1200 after a touch) before the tool applies its own rate. That replay lasts far less than a poll
+period. The edge trigger only ignores a touch baud rate the device already reports at its first poll: the USB CDC ACM
+line coding starts at 115200 and the Linux `cdc-acm` driver sets 9600 when the device enumerates, so the component is
+normally armed before any host opens the port. So:
 
 - Do not choose a touch baud rate that ground, CI, or terminal tools use to open the port.
 - After a touch made with a tool that leaves the port at the touch baud rate (such as `stty`), reset the host port, for
@@ -85,8 +90,10 @@ bootloader. The log message still names the built-in `METHOD`.
 
     SAMD boards also need the matching bootloader variant, for example
     `CONFIG_BOOTLOADER_BOSSA=y` and `CONFIG_BOOTLOADER_BOSSA_ADAFRUIT_UF2=y`. With the legacy USB device stack, Zephyr's
-    own `soc/atmel/sam0/common/bossa.c` already performs the 1200 baud reset for these options; this component is needed
-    with the `device_next` USB stack.
+    own `soc/atmel/sam0/common/bossa.c` can also perform the 1200 baud reset, but only when
+    `CONFIG_BOOTLOADER_BOSSA_DEVICE_NAME` (default `"CDC_ACM_0"`) matches the CDC ACM device name. A node such as
+    `cdc_acm_uart0` without a `label` is named `cdc_acm_uart0`, so either set that option or use this component, which
+    is required with the `device_next` USB stack.
 
 ## Host
 
@@ -104,8 +111,8 @@ fprime-zephyr-flash --method bossac --port /dev/ttyACM0 build-fprime-automatic-z
 ```
 
 When `--volume` is omitted, the UF2 method only accepts a volume that appears after the touch, and fails when several
-appear; without `--port` (board already in its bootloader) it accepts an already-mounted volume. The bossac method fails
-when the touched port does not go away. `--method teensy` runs [`teensy_loader_cli`](https://github.com/PaulStoffregen/teensy_loader_cli) and
+appear; without `--port` (board already in its bootloader) it accepts an already-mounted volume. When the bootloader reuses the
+touched port, the bossac method fails if that port does not go away. `--method teensy` runs [`teensy_loader_cli`](https://github.com/PaulStoffregen/teensy_loader_cli) and
 `--method bossac` runs [`bossac`](https://github.com/shumatech/BOSSA): the first binary of that name on `PATH` is used,
 so install them from these upstreams or the OS package manager.
 
@@ -121,7 +128,7 @@ to disappear before running `flash-command`. After the timeout, a warning is log
 | ZephyrTouchReset-003 | The component shall default the touch baud rate and bootloader entry method to those of the platform being built. | Inspection, build |
 | ZephyrTouchReset-004 | The component shall monitor the UART independently of F Prime threads and rate groups. | Inspection |
 | ZephyrTouchReset-005 | The component shall not monitor the UART when its baud rate cannot be read through `uart_line_ctrl_get`. | Inspection |
-| ZephyrTouchReset-006 | The component shall enter the bootloader only after observing a baud rate other than the touch baud rate since configuration. | Inspection, hardware test |
+| ZephyrTouchReset-006 | The component shall enter the bootloader only after observing a baud rate other than the touch baud rate since configuration, and only after reading the touch baud rate on two consecutive polls. | Inspection, hardware test |
 
 ## Verification
 

@@ -30,6 +30,8 @@ class ZephyrCiBase(Ci, ABC):
         TOUCH_BAUD = "touch-baud"
         TOUCH_BAUD__ATTRS__ = (False, int)
 
+    TOUCH_DISCONNECT_TIMEOUT = 5.0
+
     def __init__(self, port:str):
         """ Initialize basic components """
         self.port = port
@@ -69,8 +71,8 @@ class ZephyrCiBase(Ci, ABC):
         power-on. This is the most convenient place to copy files via an active program like scp  This step runs
         directly after power-on.
 
-        The default implementation touches the console port at `touch-baud` (when set) and waits up to 5 s for it to
-        disappear, runs `flash-command`, then waits for the console port to reappear.
+        The default implementation touches the console port at `touch-baud` (when set) and waits up to
+        TOUCH_DISCONNECT_TIMEOUT seconds for it to disappear, runs `flash-command`, then waits for the console port to reappear.
 
         Note: platforms with long boot times should confirm a successful boot code before attempting load operations.
 
@@ -83,9 +85,10 @@ class ZephyrCiBase(Ci, ABC):
         touch_baud = context.get(self.Keys.TOUCH_BAUD, None)
         if touch_baud is not None and Path(self.port).exists():
             touch(self.port, touch_baud)
-            if not wait_for(lambda: not Path(self.port).exists(), timeout=5.0, interval=0.1):
-                LOGGER.warning("%s still present 5 s after the %s baud touch: is ZephyrTouchReset configured?",
-                               self.port, touch_baud)
+            gone = wait_for(lambda: not Path(self.port).exists(), timeout=self.TOUCH_DISCONNECT_TIMEOUT, interval=0.1)
+            if not gone:
+                LOGGER.warning("%s still present %.1f s after the %s baud touch: is ZephyrTouchReset configured?",
+                               self.port, self.TOUCH_DISCONNECT_TIMEOUT, touch_baud)
         flash_command = context.get(self.Keys.FLASH_COMMAND, None)
         process, _, (_, _) = self.subprocess(
             flash_command

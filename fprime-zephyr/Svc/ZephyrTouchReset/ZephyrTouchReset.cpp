@@ -23,7 +23,8 @@ ZephyrTouchReset ::ZephyrTouchReset(const char* const compName)
       m_entry(Bootloader::enter),
       m_touchBaud(Bootloader::TOUCH_BAUD),
       m_pollPeriodMs(DEFAULT_POLL_PERIOD_MS),
-      m_armed(false) {
+      m_armed(false),
+      m_touchSeen(false) {
     this->m_pollWork.component = this;
     k_work_init_delayable(&this->m_pollWork.work, ZephyrTouchReset::pollHandler);
 }
@@ -57,6 +58,7 @@ Fw::Success ZephyrTouchReset ::configure(const struct device* device,
     this->m_entry = entry;
     this->m_pollPeriodMs = pollPeriodMs;
     this->m_armed = false;
+    this->m_touchSeen = false;
     this->m_device = device;
     (void)k_work_reschedule(&this->m_pollWork.work, K_MSEC(this->m_pollPeriodMs));
     return Fw::Success::SUCCESS;
@@ -72,12 +74,17 @@ void ZephyrTouchReset ::check() {
     }
     if (baud != this->m_touchBaud) {
         this->m_armed = true;
+        this->m_touchSeen = false;
+    } else if (this->m_armed && !this->m_touchSeen) {
+        // Linux briefly replays a saved touch baud rate when a port is opened, so wait for a second reading
+        this->m_touchSeen = true;
     } else if (this->m_armed) {
         // printk keeps the system work queue stack small (Fw::Logger formats into a stack Fw::String)
         printk("[TouchReset] %" PRIu32 " baud touch, entering bootloader: %s\n", this->m_touchBaud, Bootloader::METHOD);
         this->m_entry();
         // Entry failed: wait for the baud rate to change again rather than retrying every poll
         this->m_armed = false;
+        this->m_touchSeen = false;
     }
 }
 
