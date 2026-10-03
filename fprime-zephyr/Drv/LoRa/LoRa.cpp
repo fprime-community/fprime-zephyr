@@ -230,11 +230,24 @@ bool LoRa ::updateContinuousWave() {
 
 void LoRa ::SET_FREQ_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 freq_hz) {
     Os::ScopeLock lock(this->m_mutex);
-    lora_recv_async(this->m_lora_device, nullptr, nullptr);
-    BASE_CONFIG.frequency = freq_hz;
-    Status status = this->enableRx();
-    this->cmdResponse_out(opCode, cmdSeq,
-                          (status == Status::SUCCESS) ? Fw::CmdResponse::OK : Fw::CmdResponse::EXECUTION_ERROR);
+    FW_ASSERT(this->m_lora_device != nullptr);
+    Fw::CmdResponse response = Fw::CmdResponse::OK;
+    if (lora_recv_async(this->m_lora_device, nullptr, nullptr) != 0) {
+        this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+        response = Fw::CmdResponse::EXECUTION_ERROR;
+    } else {
+        const U32 previous_freq = BASE_CONFIG.frequency;
+        BASE_CONFIG.frequency = freq_hz;
+        if (this->enableRx() != Status::SUCCESS) {
+            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+            BASE_CONFIG.frequency = previous_freq;
+            if (this->enableRx() != Status::SUCCESS) {
+                this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+            }
+            response = Fw::CmdResponse::EXECUTION_ERROR;
+        }
+    }
+    this->cmdResponse_out(opCode, cmdSeq, response);
 }
 
 void LoRa ::TRANSMIT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, const TransmitState& enabled) {
