@@ -10,8 +10,12 @@ namespace Os {
 //! \brief get a delegate for RawTimeInterface that intercepts calls for Posix
 //! \param aligned_new_memory: aligned memory to fill
 //! \param to_copy: pointer to copy-constructor input
+//! \param source: timer source selection (unused in Zephyr - only RAWTIME_DEFAULT supported)
 //! \return: pointer to delegate
-RawTimeInterface *RawTimeInterface::getDelegate(RawTimeHandleStorage& aligned_new_memory, const RawTimeInterface* to_copy) {
+RawTimeInterface *RawTimeInterface::getDelegate(RawTimeHandleStorage& aligned_new_memory,
+                                                const RawTimeInterface* to_copy,
+                                                RawTimeSource source) {
+    FW_ASSERT(RawTimeSource::RAWTIME_DEFAULT == source, source);
     return Os::Delegate::makeDelegate<RawTimeInterface, Os::Zephyr::RawTime::ZephyrRawTime, RawTimeHandleStorage>(
             aligned_new_memory, to_copy
     );
