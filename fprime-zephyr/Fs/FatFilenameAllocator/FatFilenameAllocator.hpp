@@ -13,21 +13,20 @@ namespace Zephyr {
 
 //! \brief Snapshot of the pool counters
 struct FatFilenameAllocatorStats {
-    FwSizeType slotCount;       //!< Number of slots in the pool
-    FwSizeType slotBytes;       //!< Exact request size served by each slot
-    FwSizeType inUse;           //!< Slots currently allocated
-    FwSizeType highWaterMark;   //!< Largest value inUse has reached
-    FwSizeType exhaustedCount;  //!< Correctly sized requests refused because every slot was in use
-    FwSizeType rejectedCount;   //!< Requests refused because their size was not slotBytes
+    FwSizeType slotCount = 0U;       //!< Number of slots in the pool
+    FwSizeType slotBytes = 0U;       //!< Exact request size served by each slot
+    FwSizeType inUse = 0U;           //!< Slots currently allocated
+    FwSizeType highWaterMark = 0U;   //!< Largest value inUse has reached
+    FwSizeType exhaustedCount = 0U;  //!< Correctly sized requests refused because every slot was in use
+    FwSizeType rejectedCount = 0U;   //!< Requests refused because their size was not slotBytes
 };
 
 //! \brief Fixed pool of SLOT_COUNT buffers of SLOT_BYTES each, held in the object itself
 //!
 //! \tparam SLOT_BYTES exact request size served by each slot
 //! \tparam SLOT_COUNT number of slots
-//! \tparam LockPolicy type providing `Lock` (default-constructible lock object) and `Guard` (RAII guard constructed
-//! from
-//!         `Lock&`) used to serialize access to the pool
+//! \tparam LockPolicy type providing `Lock` (default-constructible lock object) and `Guard` (RAII guard
+//!         constructed from `Lock&`) used to serialize access to the pool
 template <FwSizeType SLOT_BYTES, FwSizeType SLOT_COUNT, typename LockPolicy>
 class FatFilenameAllocator {
     static_assert(SLOT_BYTES > 0U, "Slot size must be non-zero");
@@ -101,22 +100,26 @@ class FatFilenameAllocator {
     }
 
     //! \brief Read a consistent snapshot of the pool counters
-    FatFilenameAllocatorStats getStats() {
+    FatFilenameAllocatorStats getStats() const {
         typename LockPolicy::Guard guard(this->m_lock);
-        FatFilenameAllocatorStats stats = {
-            SLOT_COUNT,           SLOT_BYTES, this->m_inUseCount, this->m_highWaterMark, this->m_exhaustedCount,
-            this->m_rejectedCount};
+        FatFilenameAllocatorStats stats;
+        stats.slotCount = SLOT_COUNT;
+        stats.slotBytes = SLOT_BYTES;
+        stats.inUse = this->m_inUseCount;
+        stats.highWaterMark = this->m_highWaterMark;
+        stats.exhaustedCount = this->m_exhaustedCount;
+        stats.rejectedCount = this->m_rejectedCount;
         return stats;
     }
 
   private:
-    alignas(std::max_align_t) U8 m_slots[SLOT_COUNT][SLOT_STRIDE] = {};  //!< Slot storage
-    bool m_inUse[SLOT_COUNT] = {};                                       //!< Allocation state of each slot
-    FwSizeType m_inUseCount = 0U;                                        //!< Slots currently allocated
-    FwSizeType m_highWaterMark = 0U;                                     //!< Largest m_inUseCount observed
-    FwSizeType m_exhaustedCount = 0U;                                    //!< Requests refused: pool exhausted
-    FwSizeType m_rejectedCount = 0U;                                     //!< Requests refused: wrong size
-    typename LockPolicy::Lock m_lock = {};                               //!< Serializes access to all members
+    alignas(SLOT_ALIGNMENT) U8 m_slots[SLOT_COUNT][SLOT_STRIDE] = {};  //!< Slot storage
+    bool m_inUse[SLOT_COUNT] = {};                                     //!< Allocation state of each slot
+    FwSizeType m_inUseCount = 0U;                                      //!< Slots currently allocated
+    FwSizeType m_highWaterMark = 0U;                                   //!< Largest m_inUseCount observed
+    FwSizeType m_exhaustedCount = 0U;                                  //!< Requests refused: pool exhausted
+    FwSizeType m_rejectedCount = 0U;                                   //!< Requests refused: wrong size
+    mutable typename LockPolicy::Lock m_lock = {};                     //!< Serializes access to all members
 };
 
 }  // namespace Zephyr

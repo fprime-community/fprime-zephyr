@@ -26,6 +26,16 @@ constexpr FwSizeType TEST_SLOT_BYTES = 1120U;
 constexpr FwSizeType TEST_SLOT_COUNT = 4U;
 using TestPool = Zephyr::FatFilenameAllocator<TEST_SLOT_BYTES, TEST_SLOT_COUNT, HostMutexPolicy>;
 
+//! Literal lock policy: lets the pool be declared constexpr below
+struct NoLockPolicy {
+    struct Lock {};
+    struct Guard {
+        explicit constexpr Guard(Lock&) {}
+    };
+};
+// Fails to compile if default construction of the pool stops being a constant initialization (FZFA-007)
+constexpr Zephyr::FatFilenameAllocator<TEST_SLOT_BYTES, TEST_SLOT_COUNT, NoLockPolicy> CONSTANT_INIT_PROBE{};
+
 //! Records asserts instead of aborting so that the asserting path and pool state can be checked
 class RecordingAssertHook : public Fw::AssertHook {
   public:
@@ -65,6 +75,20 @@ class FatFilenameAllocatorTest : public ::testing::Test {
             slots[i] = pool.allocate(TEST_SLOT_BYTES);
             ASSERT_NE(slots[i], nullptr) << "slot " << i;
         }
+    }
+    //! Release ptr with a recording assert hook installed; checks the first assert argument and resulting in-use count
+    //! \return number of asserts raised
+    FwSizeType expectReleaseAssert(void* const ptr,
+                                   const FwAssertArgType expectedFirstArg,
+                                   const FwSizeType expectedInUse) {
+        RecordingAssertHook hook;
+        hook.registerHook();
+        this->m_pool.release(ptr);
+        hook.deregisterHook();
+        EXPECT_GE(hook.m_count, 1U);
+        EXPECT_EQ(hook.m_firstArg, expectedFirstArg);
+        EXPECT_EQ(this->m_pool.getStats().inUse, expectedInUse);
+        return hook.m_count;
     }
     TestPool m_pool;
 };
@@ -194,15 +218,8 @@ TEST_F(FatFilenameAllocatorTest, ForeignPointersAssert) {
         static_cast<U8*>(slot) + TEST_SLOT_BYTES - 1,  // last byte of a slot
     };
     for (void* const ptr : foreign) {
-        RecordingAssertHook hook;
-        hook.registerHook();
-        this->m_pool.release(ptr);
-        hook.deregisterHook();
-        EXPECT_GE(hook.m_count, 1U);
         // The slot-membership check fires first and reports the "not found" index
-        EXPECT_EQ(hook.m_firstArg, static_cast<FwAssertArgType>(TEST_SLOT_COUNT));
-        const Zephyr::FatFilenameAllocatorStats stats = this->m_pool.getStats();
-        EXPECT_EQ(stats.inUse, 1U);
+        this->expectReleaseAssert(ptr, static_cast<FwAssertArgType>(TEST_SLOT_COUNT), 1U);
     }
     // The legitimate slot is unaffected and still releasable
     RecordingAssertHook hook;
@@ -218,14 +235,7 @@ TEST_F(FatFilenameAllocatorTest, DoubleFreeAsserts) {
     void* slots[TEST_SLOT_COUNT] = {};
     this->fill(this->m_pool, slots);
     this->m_pool.release(slots[3]);
-    RecordingAssertHook hook;
-    hook.registerHook();
-    this->m_pool.release(slots[3]);
-    hook.deregisterHook();
-    EXPECT_EQ(hook.m_count, 1U);
-    EXPECT_EQ(hook.m_firstArg, static_cast<FwAssertArgType>(3));
-    const Zephyr::FatFilenameAllocatorStats stats = this->m_pool.getStats();
-    EXPECT_EQ(stats.inUse, TEST_SLOT_COUNT - 1U);
+    EXPECT_EQ(this->expectReleaseAssert(slots[3], static_cast<FwAssertArgType>(3), TEST_SLOT_COUNT - 1U), 1U);
     // State is not corrupted: exactly one slot is available again
     EXPECT_EQ(this->m_pool.allocate(TEST_SLOT_BYTES), slots[3]);
     EXPECT_EQ(this->m_pool.allocate(TEST_SLOT_BYTES), nullptr);
@@ -235,13 +245,7 @@ TEST_F(FatFilenameAllocatorTest, ReleaseOfNeverAllocatedSlotAsserts) {
     void* slot0 = this->m_pool.allocate(TEST_SLOT_BYTES);
     ASSERT_NE(slot0, nullptr);
     void* slot1 = static_cast<U8*>(slot0) + TestPool::SLOT_STRIDE;  // start of slot 1, never handed out
-    RecordingAssertHook hook;
-    hook.registerHook();
-    this->m_pool.release(slot1);
-    hook.deregisterHook();
-    EXPECT_EQ(hook.m_count, 1U);
-    EXPECT_EQ(hook.m_firstArg, static_cast<FwAssertArgType>(1));
-    EXPECT_EQ(this->m_pool.getStats().inUse, 1U);
+    EXPECT_EQ(this->expectReleaseAssert(slot1, static_cast<FwAssertArgType>(1), 1U), 1U);
 }
 
 using FatFilenameAllocatorDeathTest = FatFilenameAllocatorTest;
