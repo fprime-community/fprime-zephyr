@@ -106,6 +106,14 @@ register_fprime_zephyr_deployment(
 > [!TIP]
 > This will add `Main.cpp` to the Zephyr `app` target source list and sets up the topology module as a dependency.
 
+## FatFs Long File Names
+
+When a deployment sets `CONFIG_FS_FATFS_LFN_MODE_HEAP=y` (needed with `CONFIG_FS_FATFS_REENTRANT=y` unless
+`LFN_MODE_STACK` is used), fprime-zephyr serves FatFs long-filename buffers from a static pool instead of `k_malloc`
+by wrapping `ff_memalloc`/`ff_memfree` at link time. See the
+[FatFilenameAllocator SDD](./fprime-zephyr/Fs/FatFilenameAllocator/docs/sdd.md) for configuration, sizing, the
+`CONFIG_LTO` incompatibility, and the `-DFPRIME_ZEPHYR_FAT_FILENAME_ALLOCATOR=OFF` opt-out.
+
 ## Build
 
 In order to build with F Prime Zephyr, users must specify the `BOARD` environment variable (used by Zephyr) and the `zephyr` toolchain used by F Prime.
