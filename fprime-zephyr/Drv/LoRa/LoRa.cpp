@@ -235,6 +235,8 @@ void LoRa ::SET_FREQ_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 freq_hz) {
     if ((freq_hz < LoRaConfig::MIN_FREQUENCY) || (freq_hz > LoRaConfig::MAX_FREQUENCY)) {
         this->log_WARNING_LO_FrequencyOutOfRange(freq_hz, LoRaConfig::MIN_FREQUENCY, LoRaConfig::MAX_FREQUENCY);
         response = Fw::CmdResponse::VALIDATION_ERROR;
+    } else if (this->updateContinuousWave()) {
+        response = Fw::CmdResponse::BUSY;
     } else if (lora_recv_async(this->m_lora_device, nullptr, nullptr) != 0) {
         this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
         response = Fw::CmdResponse::EXECUTION_ERROR;
