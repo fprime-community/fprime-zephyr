@@ -9,6 +9,9 @@
 #include <Fw/Logger/Logger.hpp>
 namespace Zephyr {
 
+// Margin past a continuous wave's duration for the driver to release the modem
+static constexpr U32 CW_TEARDOWN_MARGIN_US = 250000;
+
 // Base configuration for the LoRa modem
 struct lora_modem_config BASE_CONFIG = {
     .frequency = LoRaConfig::FREQUENCY,
@@ -122,7 +125,7 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     FW_ASSERT(this->m_lora_device != nullptr);
     FW_ASSERT(device_is_ready(this->m_lora_device));
     Fw::Success returnStatus = Fw::Success::FAILURE;
-    if (this->m_transmit_enabled == TransmitState::ENABLED) {
+    if ((this->m_transmit_enabled == TransmitState::ENABLED) && !this->updateContinuousWave()) {
         Status status = this->enableTx();
         if (status == Status::SUCCESS) {
             (void)::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
@@ -155,6 +158,11 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     this->comStatusOut_out(0, returnStatus);
 }
 
+void LoRa ::run_handler(FwIndexType portNum, U32 context) {
+    Os::ScopeLock lock(this->m_mutex);
+    (void)this->updateContinuousWave();
+}
+
 void LoRa ::dataReturnIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::FrameContext& context) {
     this->deallocate_out(0, data);
 }
@@ -181,13 +189,43 @@ void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
 // ----------------------------------------------------------------------
 
 void LoRa ::CONTINUOUS_WAVE_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U16 seconds) {
-    Status status = this->enableTx();
-    if (status == Status::SUCCESS) {
-        lora_test_cw(this->m_lora_device, LoRaConfig::FREQUENCY, LoRaConfig::TX_POWER, seconds);
-        status = this->enableRx();
+    Os::ScopeLock lock(this->m_mutex);
+    Fw::CmdResponse response = Fw::CmdResponse::OK;
+    if (this->updateContinuousWave()) {
+        response = Fw::CmdResponse::BUSY;
+    } else {
+        Status status = this->enableTx();
+        if (status == Status::SUCCESS) {
+            // lora_test_cw() returns immediately and holds the modem until the wave ends, so RX is re-armed later
+            const int cw_status =
+                lora_test_cw(this->m_lora_device, LoRaConfig::FREQUENCY, LoRaConfig::TX_POWER, seconds);
+            if (cw_status == 0) {
+                const Fw::Time now = this->getTime();
+                this->m_cw_end = Fw::Time::add(now, Fw::Time(now.getTimeBase(), seconds, CW_TEARDOWN_MARGIN_US));
+                this->m_cw_active = true;
+            } else {
+                this->log_WARNING_HI_SendFailed(static_cast<I32>(cw_status));
+                status = Status::ERROR;
+            }
+        }
+        if (status != Status::SUCCESS) {
+            if (this->enableRx() != Status::SUCCESS) {
+                this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+            }
+            response = Fw::CmdResponse::EXECUTION_ERROR;
+        }
     }
-    this->cmdResponse_out(opCode, cmdSeq,
-                          (status == Status::SUCCESS) ? Fw::CmdResponse::OK : Fw::CmdResponse::EXECUTION_ERROR);
+    this->cmdResponse_out(opCode, cmdSeq, response);
+}
+
+bool LoRa ::updateContinuousWave() {
+    if (this->m_cw_active && (Fw::Time::compare(this->getTime(), this->m_cw_end) != Fw::TimeComparison::LT)) {
+        this->m_cw_active = false;
+        if (this->enableRx() != Status::SUCCESS) {
+            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+        }
+    }
+    return this->m_cw_active;
 }
 
 void LoRa ::TRANSMIT_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, const TransmitState& enabled) {

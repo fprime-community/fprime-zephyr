@@ -52,6 +52,9 @@ module Zephyr {
         @ Continuous wave transmission
         sync command CONTINUOUS_WAVE(seconds: U16)
 
+        @ Rate group port that re-arms receive after a continuous wave
+        sync input port run: Svc.Sched
+
         @ Start/stop transmission on the LoRa module
         sync command TRANSMIT(enabled: TransmitState)
 
