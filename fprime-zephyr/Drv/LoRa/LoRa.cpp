@@ -241,7 +241,9 @@ void LoRa ::SET_FREQ_cmdHandler(FwOpcodeType opCode, U32 cmdSeq, U32 freq_hz) {
     } else {
         const U32 previous_freq = BASE_CONFIG.frequency;
         BASE_CONFIG.frequency = freq_hz;
-        if (this->enableRx() != Status::SUCCESS) {
+        if (this->enableRx() == Status::SUCCESS) {
+            this->log_ACTIVITY_HI_FrequencySet(freq_hz);
+        } else {
             this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
             BASE_CONFIG.frequency = previous_freq;
             if (this->enableRx() != Status::SUCCESS) {

@@ -74,6 +74,10 @@ module Zephyr {
         event FrequencyOutOfRange(freq_hz: U32, min_hz: U32, max_hz: U32) severity warning low \
             format "Frequency {} Hz outside allowed range [{}, {}] Hz"
 
+        @ Event to indicate the carrier frequency was changed
+        event FrequencySet(freq_hz: U32) severity activity high \
+            format "LoRa frequency set to {} Hz"
+
         @ Event to indicate allocation failure
         event AllocationFailed(allocation_size: FwSizeType) severity warning high \
             format "Failed to allocate buffer of: {} bytes" throttle 2
