@@ -2,6 +2,8 @@
 
 #include <zephyr/kernel.h>
 
+#include <limits>
+
 namespace Zephyr {
 
 bool KmallocAllocator::isPowerOfTwo(const FwSizeType value) {
@@ -23,20 +25,21 @@ void* KmallocAllocator::allocate(const FwEnumStoreType identifier,
     static_cast<void>(identifier);
 
     recoverable = false;
-    if (size == 0U) {
-        return nullptr;
-    }
-
+    void* memory = nullptr;
     alignment = normalizeAlignment(alignment);
-    if (!isPowerOfTwo(alignment)) {
-        return nullptr;
+    // Zephyr takes size_t: a larger FwSizeType request would be truncated into a smaller allocation
+    const auto maxRequest = static_cast<FwSizeType>(std::numeric_limits<size_t>::max());
+    if ((size != 0U) && (size <= maxRequest) && isPowerOfTwo(alignment) && (alignment <= maxRequest)) {
+        if (alignment <= static_cast<FwSizeType>(sizeof(void*))) {
+            memory = k_malloc(static_cast<size_t>(size));
+        } else {
+            memory = k_aligned_alloc(static_cast<size_t>(alignment), static_cast<size_t>(size));
+        }
     }
-
-    if (alignment <= static_cast<FwSizeType>(sizeof(void*))) {
-        return k_malloc(size);
+    if (memory == nullptr) {
+        size = 0;
     }
-
-    return k_aligned_alloc(alignment, size);
+    return memory;
 }
 
 void KmallocAllocator::deallocate(const FwEnumStoreType identifier, void* ptr) {
