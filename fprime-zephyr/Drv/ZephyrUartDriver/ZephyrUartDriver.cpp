@@ -19,6 +19,7 @@ namespace Zephyr {
 ZephyrUartDriver ::ZephyrUartDriver(const char* const compName)
     : ZephyrUartDriverComponentBase(compName),
       m_dev(nullptr),
+      m_irqDriven(false),
       m_taskStarted(false),
       m_quit(false),
       m_rxPaused(false),
@@ -61,6 +62,7 @@ void ZephyrUartDriver ::configure(const struct device* dev, U32 baud_rate) {
 
     // -ENOSYS/-ENOTSUP: device lacks the interrupt-driven API, so receive would never deliver
     const int cbStatus = uart_irq_callback_user_data_set(this->m_dev, serial_cb, this);
+    this->m_irqDriven = (cbStatus == 0);
     if (cbStatus != 0) {
         Fw::Logger::log("ZephyrUartDriver: %s has no interrupt-driven UART API (%d), receive disabled\n", dev->name,
                         cbStatus);
@@ -245,7 +247,7 @@ void ZephyrUartDriver ::resumeRxIfPaused() {
 void ZephyrUartDriver ::resumeTxIfStalled() {
     const FwSizeType space = ring_buf_space_get(&this->m_txRing);
     if (this->m_txStalled && (space >= ZephyrUartDriverCfg::TX_RESUME_THRESHOLD)) {
-        // A send() rejected concurrently after this clear sets the flag again for the next tick
+        // Any later rejection sets the flag again and is recovered on a later tick
         this->m_txStalled = false;
         if (this->isConnected_ready_OutputPort(0)) {
             this->ready_out(0);
@@ -308,6 +310,14 @@ Drv::ByteStreamStatus ZephyrUartDriver ::send_handler(FwIndexType portNum, Fw::B
     }
     const FwSizeType size = sendBuffer.getSize();
     if (size == 0) {
+        return Drv::ByteStreamStatus::OP_OK;
+    }
+    if (!this->m_irqDriven) {
+        // No interrupt-driven UART API (CONFIG_UART_INTERRUPT_DRIVEN off): the ring would never
+        // drain, so keep the polled, blocking write for such devices
+        for (FwSizeType i = 0; i < size; i++) {
+            uart_poll_out(this->m_dev, sendBuffer.getData()[i]);
+        }
         return Drv::ByteStreamStatus::OP_OK;
     }
     // Whole frame or nothing: a partial frame would only corrupt the stream for the peer

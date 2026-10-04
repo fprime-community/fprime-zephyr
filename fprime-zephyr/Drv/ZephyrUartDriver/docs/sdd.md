@@ -29,7 +29,7 @@ comDriver.start(6 /* priority */, 4096 /* stack */);
 | UART-RX-07 | All storage shall be in-class; no dynamic allocation shall occur after `start()`. Sizes are compile-time configuration; task priority and stack are supplied by the topology. | Inspection |
 | UART-RX-08 | `start()` shall not assert on a missing or not-ready device; it shall return a status and leave the rate-group drain in place. A device without the interrupt-driven UART API shall be reported via `Fw::Logger` at `configure()`. | Unit test |
 | UART-TX-01 | `send` shall copy the whole frame into the software TX ring and return `OP_OK`, or, when the frame does not fit in the ring's free space, write nothing, count the drop and return `OTHER_ERROR`. No partial frame shall ever reach the device. | Unit test |
-| UART-TX-02 | The UART interrupt callback shall move TX ring bytes into the device FIFO with `uart_fifo_fill` and shall disable the TX interrupt when the ring is empty. `send` shall not block on the device. | Unit test |
+| UART-TX-02 | The UART interrupt callback shall move TX ring bytes into the device FIFO with `uart_fifo_fill` and shall disable the TX interrupt when the ring is empty. `send` shall not block on the device. On a device without the interrupt-driven API, `send` shall fall back to the polled write. | Unit test |
 | UART-TX-03 | After a frame was rejected, the driver shall signal `ready` once, from task context, when the TX ring has at least `TX_RESUME_THRESHOLD` bytes free. | Unit test |
 | UART-TX-04 | Rejected frames shall be counted and reported by a throttled event and telemetry from task context. | Unit test |
 
@@ -89,6 +89,9 @@ rate-group thread does in the default mode, so a stack equal to the rate group's
 claims contiguous ring regions and hands them to `uart_fifo_fill()` (bounded by `MAX_ISR_CLAIMS` per interrupt), finishing
 each claim with the count the device accepted; when the ring is empty it disables the TX interrupt. Both `uart_pl011` and
 `usbd_cdc_acm` implement this API, so hardware UARTs and CDC ACM behave the same.
+
+If the device has no interrupt-driven API (`uart_irq_callback_user_data_set()` failed at `configure()`), the ring could
+never drain, so `send` keeps the previous polled, blocking `uart_poll_out` write for that device.
 
 Whole frame or nothing: if the frame does not fit in `ring_buf_space_get()`, `send` writes nothing, records the size,
 increments the drop count, sets a stalled flag and returns `OTHER_ERROR`. The caller keeps ownership of the buffer, so the

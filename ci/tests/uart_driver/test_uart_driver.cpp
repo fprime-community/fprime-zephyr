@@ -285,7 +285,7 @@ static void test_start_without_configure_returns_status() {
 static void test_configure_logs_missing_irq_api() {
     std::puts(
         "configure: device without interrupt-driven API is logged, send "
-        "still works");
+        "falls back to polling");
     resetAll();
     g_uart.callbackSetResult = -ENOSYS;
     ZephyrUartDriver drv("uart");
@@ -296,6 +296,9 @@ static void test_configure_logs_missing_irq_api() {
     U8 byte = 0x5A;
     Fw::Buffer b(&byte, 1);
     CHECK(drv.send_handler_public(0, b) == Drv::ByteStreamStatus::OP_OK);
+    // Polled fallback: written immediately, nothing queued for an interrupt that cannot come
+    CHECK(g_uart.txOut == std::vector<uint8_t>{0x5A});
+    CHECK(!g_uart.txIrqEnabled);
 }
 
 static void refillRingFromRecv() {

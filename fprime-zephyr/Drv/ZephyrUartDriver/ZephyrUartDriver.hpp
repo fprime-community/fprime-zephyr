@@ -157,6 +157,7 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
     // ----------------------------------------------------------------------
 
     const struct device* m_dev;  //!< UART device, nullptr until configure()
+    bool m_irqDriven;            //!< Interrupt callback registered; otherwise TX falls back to polling
 
     struct ring_buf m_rxRing;                            //!< RX ring (producer: ISR, consumer: drain)
     U8 m_rxRingData[ZephyrUartDriverCfg::RX_RING_SIZE];  //!< RX ring storage
