@@ -22,9 +22,9 @@ struct MockUart {
     int rxEnableCount = 0;
     int rxDisableCount = 0;
     int pendingErrors = 0;
-    std::vector<uint8_t> rxFifo;                 // bytes the "device" has for us
-    size_t rxReadLimit = static_cast<size_t>(-1); // max bytes per uart_fifo_read (device FIFO depth)
-    std::vector<uint8_t> txOut;                  // bytes written to the "device"
+    std::vector<uint8_t> rxFifo;                   // bytes the "device" has for us
+    size_t rxReadLimit = static_cast<size_t>(-1);  // max bytes per uart_fifo_read (device FIFO depth)
+    std::vector<uint8_t> txOut;                    // bytes written to the "device"
     size_t txFifoDepth = 32;
     size_t txPending = 0;
     size_t txFifoFree() const { return txFifoDepth > txPending ? txFifoDepth - txPending : 0; }
@@ -32,7 +32,9 @@ struct MockUart {
     void reset() { *this = MockUart(); }
     // Deliver interrupts while the device has data and the RX interrupt is enabled
     void pumpIsr() {
-        for (int guard = 0; (guard < 100000) && (callback != nullptr) && (uart_irq_rx_ready(nullptr) || uart_irq_tx_ready(nullptr)); guard++) {
+        for (int guard = 0;
+             (guard < 100000) && (callback != nullptr) && (uart_irq_rx_ready(nullptr) || uart_irq_tx_ready(nullptr));
+             guard++) {
             callback(dev, userData);
         }
     }

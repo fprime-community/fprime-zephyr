@@ -11,6 +11,7 @@ class Buffer {
     U8* getData() const { return m_data; }
     SizeType getSize() const { return m_size; }
     void setSize(SizeType size) { m_size = size; }
+
   private:
     U8* m_data;
     SizeType m_size;

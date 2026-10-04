@@ -25,12 +25,12 @@ int Os::Task::s_startCount = 0;
 int Os::Task::s_joinCount = 0;
 
 static int g_failures = 0;
-#define CHECK(cond)                                                                   \
-    do {                                                                              \
-        if (!(cond)) {                                                                \
+#define CHECK(cond)                                                                          \
+    do {                                                                                     \
+        if (!(cond)) {                                                                       \
             std::fprintf(stderr, "  CHECK failed: %s (%s:%d)\n", #cond, __FILE__, __LINE__); \
-            g_failures++;                                                             \
-        }                                                                             \
+            g_failures++;                                                                    \
+        }                                                                                    \
     } while (0)
 
 using Zephyr::ZephyrUartDriver;

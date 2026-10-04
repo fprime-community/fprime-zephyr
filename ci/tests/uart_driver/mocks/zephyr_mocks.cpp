@@ -42,7 +42,9 @@ extern "C" int uart_configure(const struct device*, const struct uart_config* cf
     g_uart.configuredBaud = cfg->baudrate;
     return 0;
 }
-extern "C" int uart_irq_callback_user_data_set(const struct device* dev, uart_irq_callback_user_data_t cb, void* user_data) {
+extern "C" int uart_irq_callback_user_data_set(const struct device* dev,
+                                               uart_irq_callback_user_data_t cb,
+                                               void* user_data) {
     g_uart.dev = dev;
     g_uart.callback = cb;
     g_uart.userData = user_data;

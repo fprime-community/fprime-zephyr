@@ -27,28 +27,38 @@ class ZephyrUartDriverComponentBase {
     virtual ~ZephyrUartDriverComponentBase() {}
 
     // --- test harness state ---
-    struct Recv { std::vector<U8> data; Drv::ByteStreamStatus::T status; };
+    struct Recv {
+        std::vector<U8> data;
+        Drv::ByteStreamStatus::T status;
+    };
     std::vector<Recv> h_recv;
-    std::vector<U8> h_recvStream;       // concatenation of all delivered bytes
+    std::vector<U8> h_recvStream;  // concatenation of all delivered bytes
     std::vector<FwSizeType> h_allocSizes;
     int h_deallocCount = 0;
     int h_emptyDeallocCount = 0;
     int h_readyCount = 0;
     bool h_readyConnected = true;
-    bool h_allocFail = false;           // allocator returns an empty buffer
-    int h_outstanding = 0;              // buffers allocated and not yet returned
+    bool h_allocFail = false;  // allocator returns an empty buffer
+    int h_outstanding = 0;     // buffers allocated and not yet returned
     std::vector<U32> h_rxOverrunEvents;
     U32 h_tlmRxBytes = 0, h_tlmRxOverrun = 0, h_tlmRxBackpressure = 0, h_tlmRxAllocFail = 0;
 
     // --- port invocation (the generated base dispatches to the private handlers) ---
     void schedIn_handler_public(FwIndexType portNum, U32 context) { this->schedIn_handler(portNum, context); }
-    Drv::ByteStreamStatus send_handler_public(FwIndexType portNum, Fw::Buffer& buffer) { return this->send_handler(portNum, buffer); }
-    void recvReturnIn_handler_public(FwIndexType portNum, Fw::Buffer& buffer) { this->recvReturnIn_handler(portNum, buffer); }
+    Drv::ByteStreamStatus send_handler_public(FwIndexType portNum, Fw::Buffer& buffer) {
+        return this->send_handler(portNum, buffer);
+    }
+    void recvReturnIn_handler_public(FwIndexType portNum, Fw::Buffer& buffer) {
+        this->recvReturnIn_handler(portNum, buffer);
+    }
 
     void resetHarness() {
-        h_recv.clear(); h_recvStream.clear(); h_allocSizes.clear();
+        h_recv.clear();
+        h_recvStream.clear();
+        h_allocSizes.clear();
         h_deallocCount = h_emptyDeallocCount = h_readyCount = h_outstanding = 0;
-        h_readyConnected = true; h_allocFail = false;
+        h_readyConnected = true;
+        h_allocFail = false;
         h_rxOverrunEvents.clear();
         h_tlmRxBytes = h_tlmRxOverrun = h_tlmRxBackpressure = h_tlmRxAllocFail = 0;
         std::memset(m_used, 0, sizeof(m_used));

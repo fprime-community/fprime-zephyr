@@ -8,17 +8,40 @@ class TaskString {
   public:
     explicit TaskString(const char* s) : m_s(s) {}
     const char* toChar() const { return m_s; }
+
   private:
     const char* m_s;
 };
 class Task {
   public:
-    enum Status { OP_OK, INVALID_HANDLE, INVALID_PARAMS, INVALID_STACK, UNKNOWN_ERROR, INVALID_STATE, ERROR_RESOURCES, ERROR_PERMISSION, DELAY_ERROR, JOIN_ERROR, NOT_SUPPORTED };
+    enum Status {
+        OP_OK,
+        INVALID_HANDLE,
+        INVALID_PARAMS,
+        INVALID_STACK,
+        UNKNOWN_ERROR,
+        INVALID_STATE,
+        ERROR_RESOURCES,
+        ERROR_PERMISSION,
+        DELAY_ERROR,
+        JOIN_ERROR,
+        NOT_SUPPORTED
+    };
     static constexpr FwSizeType TASK_DEFAULT = 0;
     typedef void (*taskRoutine)(void*);
     struct Arguments {
-        Arguments(const TaskString& name, taskRoutine routine, void* arg, FwTaskPriorityType priority = 0, FwSizeType stackSize = TASK_DEFAULT, FwSizeType cpuAffinity = TASK_DEFAULT)
-            : m_name(name), m_routine(routine), m_routine_argument(arg), m_priority(priority), m_stackSize(stackSize), m_cpuAffinity(cpuAffinity) {}
+        Arguments(const TaskString& name,
+                  taskRoutine routine,
+                  void* arg,
+                  FwTaskPriorityType priority = 0,
+                  FwSizeType stackSize = TASK_DEFAULT,
+                  FwSizeType cpuAffinity = TASK_DEFAULT)
+            : m_name(name),
+              m_routine(routine),
+              m_routine_argument(arg),
+              m_priority(priority),
+              m_stackSize(stackSize),
+              m_cpuAffinity(cpuAffinity) {}
         TaskString m_name;
         taskRoutine m_routine;
         void* m_routine_argument;
