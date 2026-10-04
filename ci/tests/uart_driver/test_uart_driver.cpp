@@ -58,7 +58,9 @@ static void resetAll() {
 }
 
 static void test_configure_enables_rx_and_signals_ready() {
-    std::puts("configure: registers callback, enables RX IRQ, disables TX IRQ, signals ready");
+    std::puts(
+        "configure: registers callback, enables RX IRQ, disables TX IRQ, "
+        "signals ready");
     resetAll();
     ZephyrUartDriver drv("uart");
     drv.configure(&g_dev, 115200);
@@ -72,7 +74,9 @@ static void test_configure_enables_rx_and_signals_ready() {
 }
 
 static void test_configure_not_ready_device() {
-    std::puts("configure: device not ready -> no callback, no ready, schedIn/send are no-ops");
+    std::puts(
+        "configure: device not ready -> no callback, no ready, "
+        "schedIn/send are no-ops");
     resetAll();
     g_uart.deviceReady = false;
     ZephyrUartDriver drv("uart");
@@ -88,7 +92,9 @@ static void test_configure_not_ready_device() {
 }
 
 static void test_full_ring_drained_in_one_tick() {
-    std::puts("schedIn: a full ring is delivered in one tick, in order, in <= RX_CHUNK_SIZE chunks");
+    std::puts(
+        "schedIn: a full ring is delivered in one tick, in order, in <= "
+        "RX_CHUNK_SIZE chunks");
     resetAll();
     ZephyrUartDriver drv("uart");
     drv.configure(&g_dev, 115200);
@@ -112,7 +118,9 @@ static void test_full_ring_drained_in_one_tick() {
 }
 
 static void test_backpressure_no_loss() {
-    std::puts("ISR: ring full -> RX IRQ disabled, no bytes lost; drain re-enables and completes byte-perfect");
+    std::puts(
+        "ISR: ring full -> RX IRQ disabled, no bytes lost; drain "
+        "re-enables and completes byte-perfect");
     resetAll();
     ZephyrUartDriver drv("uart");
     drv.configure(&g_dev, 115200);
@@ -124,7 +132,8 @@ static void test_backpressure_no_loss() {
     CHECK(!g_uart.rxIrqEnabled);                               // paused
     CHECK(g_uart.rxFifo.size() == total - Cfg::RX_RING_SIZE);  // nothing discarded
     CHECK(g_uart.rxDisableCount == 1);
-    // Each tick drains, which re-enables RX; the "device" then raises more interrupts
+    // Each tick drains, which re-enables RX; the "device" then raises more
+    // interrupts
     for (int tick = 0; tick < 8 && drv.h_recvStream.size() < total; tick++) {
         drv.schedIn_handler_public(0, 0);
         g_uart.pumpIsr();
@@ -138,7 +147,9 @@ static void test_backpressure_no_loss() {
 }
 
 static void test_alloc_failure_keeps_data() {
-    std::puts("drain: allocator exhaustion leaves data in the ring, returns no empty buffer, retries later");
+    std::puts(
+        "drain: allocator exhaustion leaves data in the ring, returns no "
+        "empty buffer, retries later");
     resetAll();
     ZephyrUartDriver drv("uart");
     drv.configure(&g_dev, 115200);
@@ -158,7 +169,9 @@ static void test_alloc_failure_keeps_data() {
 }
 
 static void test_alloc_failure_while_paused_keeps_backpressure() {
-    std::puts("drain: allocator exhaustion while paused keeps RX IRQ disabled (back-pressure propagates)");
+    std::puts(
+        "drain: allocator exhaustion while paused keeps RX IRQ disabled "
+        "(back-pressure propagates)");
     resetAll();
     ZephyrUartDriver drv("uart");
     drv.configure(&g_dev, 115200);
@@ -172,7 +185,9 @@ static void test_alloc_failure_while_paused_keeps_backpressure() {
 }
 
 static void test_overrun_reported_once_per_change() {
-    std::puts("ISR: hardware overrun counted; event emitted from schedIn only when the count changes");
+    std::puts(
+        "ISR: hardware overrun counted; event emitted from schedIn only "
+        "when the count changes");
     resetAll();
     ZephyrUartDriver drv("uart");
     drv.configure(&g_dev, 115200);
@@ -199,7 +214,9 @@ static void stopAfterSecondTake(int takeCount) {
 }
 
 static void test_start_makes_task_sole_consumer() {
-    std::puts("start: RX task is the only consumer; schedIn only nudges the semaphore and reports");
+    std::puts(
+        "start: RX task is the only consumer; schedIn only nudges the "
+        "semaphore and reports");
     resetAll();
     ZephyrUartDriver drv("uart");
     drv.configure(&g_dev, 115200);
@@ -250,6 +267,70 @@ static void test_start_failure_falls_back_to_sched() {
     CHECK(Os::Task::s_joinCount == 0);
 }
 
+static void test_start_without_configure_returns_status() {
+    std::puts(
+        "start: no configured device (configure skipped or device not "
+        "ready) returns a status, no task");
+    resetAll();
+    g_uart.deviceReady = false;
+    ZephyrUartDriver drv("uart");
+    drv.configure(&g_dev, 115200);
+    CHECK(drv.start(7, 4096) == Os::Task::INVALID_HANDLE);
+    CHECK(Os::Task::s_startCount == 0);
+    CHECK(Fw::Logger::s_logCount == 2);  // not-ready + start refused
+    drv.schedIn_handler_public(0, 0);    // still harmless
+    CHECK(drv.h_recv.empty());
+    CHECK(drv.join() == Os::Task::OP_OK);
+}
+
+static void test_configure_logs_missing_irq_api() {
+    std::puts(
+        "configure: device without interrupt-driven API is logged, send "
+        "still works");
+    resetAll();
+    g_uart.callbackSetResult = -ENOSYS;
+    ZephyrUartDriver drv("uart");
+    drv.configure(&g_dev, 115200);
+    CHECK(Fw::Logger::s_logCount == 1);
+    CHECK(g_uart.callback == nullptr);
+    CHECK(drv.h_readyCount == 1);
+    U8 byte = 0x5A;
+    Fw::Buffer b(&byte, 1);
+    CHECK(drv.send_handler_public(0, b) == Drv::ByteStreamStatus::OP_OK);
+}
+
+static void refillRingFromRecv() {
+    // The "device" keeps delivering while the drain runs: refill the ring after
+    // every chunk
+    g_uart.rxFifo = pattern(Cfg::RX_CHUNK_SIZE, 11);
+    g_uart.pumpIsr();
+}
+
+static void test_drain_bounded_under_continuous_refill() {
+    std::puts(
+        "drain: a ring refilled during the drain is bounded by "
+        "MAX_DRAIN_ITERATIONS and leaves data for the next tick");
+    resetAll();
+    ZephyrUartDriver drv("uart");
+    drv.configure(&g_dev, 115200);
+    g_uart.rxFifo = pattern(Cfg::RX_RING_SIZE);
+    g_uart.pumpIsr();
+    drv.h_onRecv = refillRingFromRecv;
+    drv.schedIn_handler_public(0, 0);
+    const size_t maxIterations = (2 * Cfg::RX_RING_SIZE) / Cfg::RX_CHUNK_SIZE + 1;
+    CHECK(drv.h_recv.size() == maxIterations);
+    CHECK(drv.h_recvStream.size() == maxIterations * Cfg::RX_CHUNK_SIZE);
+    // Every chunk drained was replaced, so a full ring is still pending for the
+    // next tick
+    drv.h_onRecv = nullptr;
+    const size_t before = drv.h_recvStream.size();
+    drv.schedIn_handler_public(0, 0);
+    CHECK(drv.h_recvStream.size() == before + Cfg::RX_RING_SIZE);
+    CHECK(g_uart.rxIrqEnabled);
+    CHECK(drv.h_tlmRxOverrun == 0);
+    CHECK(drv.h_outstanding == 0);
+}
+
 static void test_send_writes_all_bytes() {
     std::puts("send: all bytes written in order");
     resetAll();
@@ -282,6 +363,9 @@ int main() {
     test_overrun_reported_once_per_change();
     test_start_makes_task_sole_consumer();
     test_start_failure_falls_back_to_sched();
+    test_start_without_configure_returns_status();
+    test_configure_logs_missing_irq_api();
+    test_drain_bounded_under_continuous_refill();
     test_send_writes_all_bytes();
     test_recv_return_deallocates();
     if (g_failures != 0) {

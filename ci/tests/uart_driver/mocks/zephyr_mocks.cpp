@@ -45,6 +45,9 @@ extern "C" int uart_configure(const struct device*, const struct uart_config* cf
 extern "C" int uart_irq_callback_user_data_set(const struct device* dev,
                                                uart_irq_callback_user_data_t cb,
                                                void* user_data) {
+    if (g_uart.callbackSetResult != 0) {
+        return g_uart.callbackSetResult;
+    }
     g_uart.dev = dev;
     g_uart.callback = cb;
     g_uart.userData = user_data;
@@ -94,7 +97,8 @@ extern "C" void uart_poll_out(const struct device*, unsigned char out_char) {
     g_uart.txOut.push_back(static_cast<uint8_t>(out_char));
 }
 
-// --- sys/ring_buffer.h: mirrors the Zephyr semantics (contiguous claims, finish <= claim) ---
+// --- sys/ring_buffer.h: mirrors the Zephyr semantics (contiguous claims,
+// finish <= claim) ---
 extern "C" void ring_buf_init(struct ring_buf* buf, uint32_t size, uint8_t* data) {
     buf->buffer = data;
     buf->size = size;

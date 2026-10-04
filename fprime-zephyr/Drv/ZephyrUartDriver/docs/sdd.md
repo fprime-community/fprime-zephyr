@@ -27,6 +27,7 @@ comDriver.start(6 /* priority */, 4096 /* stack */);
 | UART-RX-05 | When `start()` has been called successfully, a dedicated task woken by the interrupt shall be the only consumer of the RX ring; `schedIn` shall not read the ring. Otherwise `schedIn` shall drain the ring. | Unit test |
 | UART-RX-06 | Hardware overrun indications (`uart_err_check`) and ring put failures shall be counted and reported by a throttled event and telemetry from task context. The interrupt callback shall not log. | Unit test / inspection |
 | UART-RX-07 | All storage shall be in-class; no dynamic allocation shall occur after `start()`. Sizes are compile-time configuration; task priority and stack are supplied by the topology. | Inspection |
+| UART-RX-08 | `start()` shall not assert on a missing or not-ready device; it shall return a status and leave the rate-group drain in place. A device without the interrupt-driven UART API shall be reported via `Fw::Logger` at `configure()`. | Unit test |
 | UART-TX-01 | `send` shall write the frame to the device. | Inspection |
 
 ## Design
@@ -63,7 +64,17 @@ Two consumer modes, selected by the topology:
 `start(priority, stackSize)` creates an `Os::Task` ("UartRx"). `m_taskStarted` is set before the task is created so there is
 never a window with two readers. If the task cannot be started (e.g. the Zephyr thread stack pool is exhausted or
 `stackSize` exceeds `CONFIG_DYNAMIC_THREAD_STACK_SIZE`), the driver logs with `Fw::Logger`, clears `m_taskStarted` so the
-rate-group drain continues, and returns the `Os::Task::Status` to the caller. `stop()`/`join()` are provided for teardown.
+rate-group drain continues, and returns the `Os::Task::Status` to the caller; `start()` called before a successful
+`configure()` returns `INVALID_HANDLE` without creating a task. `stop()`/`join()` are provided for teardown.
+
+Back-pressure release: the drain re-enables the RX interrupt after every delivered chunk and once more after the loop. If
+the interrupt pauses the ring in the instant between that final check and the end of the drain, RX stays paused until the
+next drain: at most one rate-group period in rate-group mode, at most `RX_TASK_WAKE_TIMEOUT_MS` (100 ms) in event-driven
+mode (the wake that paused the ring also gave the semaphore, so in practice the task re-runs immediately).
+
+Throughput: rate-group mode delivers up to `RX_RING_SIZE` bytes per `schedIn` (e.g. 1 KiB x 10 Hz = ~10 KiB/s, versus
+64 B x 10 Hz = 640 B/s before this change); event-driven mode is bounded by the device, the allocator and the downstream
+chain rather than by the rate group.
 
 The RX task executes the synchronous downstream chain (`ComStub -> FrameAccumulator -> deframer -> router`) exactly as the
 rate-group thread does in the default mode, so a stack equal to the rate group's is sufficient.

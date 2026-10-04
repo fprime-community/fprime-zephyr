@@ -1,4 +1,5 @@
-// Stub of the FPP-generated component base: records port calls and serves buffers from a pool
+// Stub of the FPP-generated component base: records port calls and serves
+// buffers from a pool
 #ifndef ZEPHYR_UART_DRIVER_COMPONENT_AC_HPP
 #define ZEPHYR_UART_DRIVER_COMPONENT_AC_HPP
 #include <Fw/Buffer.hpp>
@@ -38,12 +39,14 @@ class ZephyrUartDriverComponentBase {
     int h_emptyDeallocCount = 0;
     int h_readyCount = 0;
     bool h_readyConnected = true;
-    bool h_allocFail = false;  // allocator returns an empty buffer
-    int h_outstanding = 0;     // buffers allocated and not yet returned
+    bool h_allocFail = false;      // allocator returns an empty buffer
+    void (*h_onRecv)() = nullptr;  // called from recv_out after delivery (simulate ISR refill)
+    int h_outstanding = 0;         // buffers allocated and not yet returned
     std::vector<U32> h_rxOverrunEvents;
     U32 h_tlmRxBytes = 0, h_tlmRxOverrun = 0, h_tlmRxBackpressure = 0, h_tlmRxAllocFail = 0;
 
-    // --- port invocation (the generated base dispatches to the private handlers) ---
+    // --- port invocation (the generated base dispatches to the private handlers)
+    // ---
     void schedIn_handler_public(FwIndexType portNum, U32 context) { this->schedIn_handler(portNum, context); }
     Drv::ByteStreamStatus send_handler_public(FwIndexType portNum, Fw::Buffer& buffer) {
         return this->send_handler(portNum, buffer);
@@ -59,6 +62,7 @@ class ZephyrUartDriverComponentBase {
         h_deallocCount = h_emptyDeallocCount = h_readyCount = h_outstanding = 0;
         h_readyConnected = true;
         h_allocFail = false;
+        h_onRecv = nullptr;
         h_rxOverrunEvents.clear();
         h_tlmRxBytes = h_tlmRxOverrun = h_tlmRxBackpressure = h_tlmRxAllocFail = 0;
         std::memset(m_used, 0, sizeof(m_used));
@@ -99,7 +103,11 @@ class ZephyrUartDriverComponentBase {
         r.status = status.e;
         h_recvStream.insert(h_recvStream.end(), r.data.begin(), r.data.end());
         h_recv.push_back(r);
-        release(buffer);  // downstream returns the buffer (recvReturnIn -> deallocate) immediately
+        release(buffer);  // downstream returns the buffer (recvReturnIn ->
+                          // deallocate) immediately
+        if (h_onRecv != nullptr) {
+            h_onRecv();
+        }
     }
     void ready_out(FwIndexType) { h_readyCount++; }
     bool isConnected_ready_OutputPort(FwIndexType) const { return h_readyConnected; }

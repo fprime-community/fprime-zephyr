@@ -15,6 +15,7 @@ struct MockUart {
     bool deviceReady = true;
     uint32_t configuredBaud = 0;
     const struct device* dev = nullptr;
+    int callbackSetResult = 0;  // return of uart_irq_callback_user_data_set (-ENOSYS: no IRQ API)
     uart_irq_callback_user_data_t callback = nullptr;
     void* userData = nullptr;
     bool rxIrqEnabled = false;
@@ -30,7 +31,8 @@ struct MockUart {
     size_t txFifoFree() const { return txFifoDepth > txPending ? txFifoDepth - txPending : 0; }
 
     void reset() { *this = MockUart(); }
-    // Deliver interrupts while the device has data and the RX interrupt is enabled
+    // Deliver interrupts while the device has data and the RX interrupt is
+    // enabled
     void pumpIsr() {
         for (int guard = 0;
              (guard < 100000) && (callback != nullptr) && (uart_irq_rx_ready(nullptr) || uart_irq_tx_ready(nullptr));
