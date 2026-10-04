@@ -87,7 +87,8 @@ interrupt-driven transmit path is proposed separately.)
 ### Events and telemetry
 
 Events and telemetry are emitted only from `schedIn` (task context). Counters incremented by the interrupt callback are
-`std::atomic<U32>` (lock-free on Cortex-M).
+`std::atomic<U32>`: 32-bit atomics are lock-free on Cortex-M, whereas a 64-bit `std::atomic<FwSizeType>` would need
+libatomic (not linked by Zephyr) and would take a lock inside the ISR.
 
 ## Port Interfaces
 
@@ -122,7 +123,7 @@ Run-time: `configure(dev, baud)`; optional `start(priority, stackSize)`.
 
 | Name | Type | Description |
 |---|---|---|
-| `RxBytes` | FwSizeType | Cumulative bytes moved from the device into the RX ring |
+| `RxBytes` | U32 | Cumulative bytes moved from the device into the RX ring |
 | `RxOverrunCount` | U32 | Cumulative overrun indications |
 | `RxBackpressureCount` | U32 | Times the RX interrupt was paused because the ring was full |
 | `RxAllocFailCount` | U32 | Drain iterations that stalled for lack of a buffer |

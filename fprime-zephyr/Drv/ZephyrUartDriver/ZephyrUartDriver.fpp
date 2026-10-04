@@ -57,7 +57,7 @@ module Zephyr {
     # Telemetry                                                                   #
     ###############################################################################
     @ Cumulative bytes received from the UART into the RX ring
-    telemetry RxBytes: FwSizeType update on change
+    telemetry RxBytes: U32 update on change
 
 
     @ Cumulative RX overrun indications (hardware overrun or ring put failure)

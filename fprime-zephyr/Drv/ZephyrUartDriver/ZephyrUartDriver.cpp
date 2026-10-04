@@ -155,7 +155,7 @@ bool ZephyrUartDriver ::isrReceive() {
             this->m_rxOverruns++;
             break;
         }
-        this->m_rxBytes += static_cast<FwSizeType>(read);
+        this->m_rxBytes += static_cast<U32>(read);
         received = true;
         if (static_cast<FwSizeType>(read) < claimed) {
             break;  // device FIFO drained
