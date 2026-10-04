@@ -328,15 +328,102 @@ static void test_drain_bounded_under_continuous_refill() {
     CHECK(drv.h_outstanding == 0);
 }
 
-static void test_send_writes_all_bytes() {
-    std::puts("send: all bytes written in order");
+static void test_send_queues_frame_isr_transmits() {
+    std::puts("send: frame queued, ISR transmits it in order through a small device FIFO");
     resetAll();
     ZephyrUartDriver drv("uart");
     drv.configure(&g_dev, 115200);
     std::vector<uint8_t> frame = pattern(300, 2);
     Fw::Buffer b(frame.data(), frame.size());
     CHECK(drv.send_handler_public(0, b) == Drv::ByteStreamStatus::OP_OK);
+    CHECK(g_uart.txIrqEnabled);
+    CHECK(g_uart.txOut.empty());  // nothing written on the caller's thread
+    g_uart.transmitAll();
     CHECK(g_uart.txOut == frame);
+    CHECK(!g_uart.txIrqEnabled);  // TX interrupt silenced once the ring is empty
+    drv.schedIn_handler_public(0, 0);
+    CHECK(drv.h_tlmTxBytes == 300);
+    CHECK(drv.h_tlmTxDrops == 0);
+    CHECK(drv.h_txDropEvents.empty());
+}
+
+static void test_send_multiple_frames_in_order() {
+    std::puts("send: several queued frames leave the device back to back, in order");
+    resetAll();
+    ZephyrUartDriver drv("uart");
+    drv.configure(&g_dev, 115200);
+    std::vector<uint8_t> expected;
+    for (int i = 0; i < 3; i++) {
+        std::vector<uint8_t> frame = pattern(500, static_cast<uint8_t>(10 + i));
+        Fw::Buffer b(frame.data(), frame.size());
+        CHECK(drv.send_handler_public(0, b) == Drv::ByteStreamStatus::OP_OK);
+        expected.insert(expected.end(), frame.begin(), frame.end());
+    }
+    g_uart.transmitAll();
+    CHECK(g_uart.txOut == expected);
+}
+
+static void test_send_rejects_whole_frame_and_recovers() {
+    std::puts("send: frame that does not fit is rejected whole; ready re-signalled after recovery");
+    resetAll();
+    ZephyrUartDriver drv("uart");
+    drv.configure(&g_dev, 115200);
+    CHECK(drv.h_readyCount == 1);  // configure() signalled ready
+    std::vector<uint8_t> big = pattern(Cfg::TX_RING_SIZE - 48, 3);
+    Fw::Buffer b1(big.data(), big.size());
+    CHECK(drv.send_handler_public(0, b1) == Drv::ByteStreamStatus::OP_OK);
+    std::vector<uint8_t> small = pattern(100, 4);
+    Fw::Buffer b2(small.data(), small.size());
+    CHECK(drv.send_handler_public(0, b2) == Drv::ByteStreamStatus::OTHER_ERROR);
+    CHECK(g_uart.txOut.empty());  // nothing partial written
+    drv.schedIn_handler_public(0, 0);
+    CHECK(drv.h_txDropEvents.size() == 1);
+    CHECK(drv.h_txDropEvents[0].first == 100);
+    CHECK(drv.h_txDropEvents[0].second == 1);
+    CHECK(drv.h_tlmTxDrops == 1);
+    CHECK(drv.h_readyCount == 1);  // ring still full: no recovery yet
+    // One interrupt: the device FIFO (32 B) takes a little, far below TX_RESUME_THRESHOLD
+    g_uart.pumpIsr();
+    drv.schedIn_handler_public(0, 0);
+    CHECK(drv.h_readyCount == 1);
+    CHECK(drv.h_txDropEvents.size() == 1);  // same count: no new event
+    // Drain everything: recovery signalled once, not again on later ticks
+    g_uart.transmitAll();
+    CHECK(g_uart.txOut == big);
+    drv.schedIn_handler_public(0, 0);
+    CHECK(drv.h_readyCount == 2);
+    drv.schedIn_handler_public(0, 0);
+    CHECK(drv.h_readyCount == 2);
+    // The caller retried after ready: the frame goes through now
+    CHECK(drv.send_handler_public(0, b2) == Drv::ByteStreamStatus::OP_OK);
+    g_uart.transmitAll();
+    std::vector<uint8_t> expected = big;
+    expected.insert(expected.end(), small.begin(), small.end());
+    CHECK(g_uart.txOut == expected);
+}
+
+static void test_send_oversize_and_degenerate_frames() {
+    std::puts("send: frame larger than the ring is always rejected; empty frame is a no-op; no device fails");
+    resetAll();
+    ZephyrUartDriver drv("uart");
+    drv.configure(&g_dev, 115200);
+    std::vector<uint8_t> huge = pattern(Cfg::TX_RING_SIZE + 1, 5);
+    Fw::Buffer b1(huge.data(), huge.size());
+    CHECK(drv.send_handler_public(0, b1) == Drv::ByteStreamStatus::OTHER_ERROR);
+    Fw::Buffer empty(huge.data(), 0);
+    CHECK(drv.send_handler_public(0, empty) == Drv::ByteStreamStatus::OP_OK);
+    g_uart.transmitAll();
+    CHECK(g_uart.txOut.empty());
+    drv.schedIn_handler_public(0, 0);
+    CHECK(drv.h_tlmTxDrops == 1);
+    CHECK(drv.h_txDropEvents.size() == 1);
+    CHECK(drv.h_txDropEvents[0].first == Cfg::TX_RING_SIZE + 1);
+
+    resetAll();
+    ZephyrUartDriver unconfigured("uart2");
+    std::vector<uint8_t> frame = pattern(10, 6);
+    Fw::Buffer b2(frame.data(), frame.size());
+    CHECK(unconfigured.send_handler_public(0, b2) == Drv::ByteStreamStatus::OTHER_ERROR);
 }
 
 static void test_recv_return_deallocates() {
@@ -363,12 +450,15 @@ int main() {
     test_start_without_configure_returns_status();
     test_configure_logs_missing_irq_api();
     test_drain_bounded_under_continuous_refill();
-    test_send_writes_all_bytes();
+    test_send_queues_frame_isr_transmits();
+    test_send_multiple_frames_in_order();
+    test_send_rejects_whole_frame_and_recovers();
+    test_send_oversize_and_degenerate_frames();
     test_recv_return_deallocates();
     if (g_failures != 0) {
         std::fprintf(stderr, "%d check(s) FAILED\n", g_failures);
         return EXIT_FAILURE;
     }
-    std::puts("All ZephyrUartDriver RX tests passed");
+    std::puts("All ZephyrUartDriver tests passed");
     return EXIT_SUCCESS;
 }

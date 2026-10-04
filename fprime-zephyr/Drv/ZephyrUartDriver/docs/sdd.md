@@ -28,7 +28,10 @@ comDriver.start(6 /* priority */, 4096 /* stack */);
 | UART-RX-06 | Hardware overrun indications (`uart_err_check`) and ring put failures shall be counted and reported by a throttled event and telemetry from task context. The interrupt callback shall not log. | Unit test / inspection |
 | UART-RX-07 | All storage shall be in-class; no dynamic allocation shall occur after `start()`. Sizes are compile-time configuration; task priority and stack are supplied by the topology. | Inspection |
 | UART-RX-08 | `start()` shall not assert on a missing or not-ready device; it shall return a status and leave the rate-group drain in place. A device without the interrupt-driven UART API shall be reported via `Fw::Logger` at `configure()`. | Unit test |
-| UART-TX-01 | `send` shall write the frame to the device. | Inspection |
+| UART-TX-01 | `send` shall copy the whole frame into the software TX ring and return `OP_OK`, or, when the frame does not fit in the ring's free space, write nothing, count the drop and return `OTHER_ERROR`. No partial frame shall ever reach the device. | Unit test |
+| UART-TX-02 | The UART interrupt callback shall move TX ring bytes into the device FIFO with `uart_fifo_fill` and shall disable the TX interrupt when the ring is empty. `send` shall not block on the device. | Unit test |
+| UART-TX-03 | After a frame was rejected, the driver shall signal `ready` once, from task context, when the TX ring has at least `TX_RESUME_THRESHOLD` bytes free. | Unit test |
+| UART-TX-04 | Rejected frames shall be counted and reported by a throttled event and telemetry from task context. | Unit test |
 
 ## Design
 
@@ -81,8 +84,24 @@ rate-group thread does in the default mode, so a stack equal to the rate group's
 
 ### Transmit path
 
-`send` writes the frame synchronously with `uart_poll_out` on the caller's thread and returns `OP_OK`. (A non-blocking,
-interrupt-driven transmit path is proposed separately.)
+`send` (guarded, so the single producer of the TX ring) copies the frame into the TX ring with `ring_buf_put` and calls
+`uart_irq_tx_enable()`; the cost to the caller is one bounded memcpy. The interrupt callback, when `uart_irq_tx_ready()`,
+claims contiguous ring regions and hands them to `uart_fifo_fill()` (bounded by `MAX_ISR_CLAIMS` per interrupt), finishing
+each claim with the count the device accepted; when the ring is empty it disables the TX interrupt. Both `uart_pl011` and
+`usbd_cdc_acm` implement this API, so hardware UARTs and CDC ACM behave the same.
+
+Whole frame or nothing: if the frame does not fit in `ring_buf_space_get()`, `send` writes nothing, records the size,
+increments the drop count, sets a stalled flag and returns `OTHER_ERROR`. The caller keeps ownership of the buffer, so the
+frame is not lost by the driver; what happens to it is decided upstream: `Svc::ComStub` turns `OTHER_ERROR` into a
+`FAILURE` com-status, `Svc::ComQueue` stops sending, and `Svc::ComRetry` (if present in the chain) holds the frame and
+resends it on the next `SUCCESS`. That `SUCCESS` comes from the driver: on each `schedIn`, if the stalled flag is set and
+the ring has at least `TX_RESUME_THRESHOLD` bytes free, the driver clears the flag and calls `ready` (ComStub's
+`drvConnected`), once. `TX_RESUME_THRESHOLD` must therefore be at least the largest frame the deployment sends, or the
+retried frame is rejected again. Recovery latency is one rate-group period after the ring has drained.
+
+This replaces the previous `uart_poll_out` loop, which blocked the caller for the duration of the frame on hardware UARTs
+(~87 us/byte at 115200) and, on CDC ACM with the host not reading, silently discarded bytes once the 1 KiB class-driver
+FIFO was full (`cdc_acm_poll_out` with flow control off), delivering partial frames to the host while returning `OP_OK`.
 
 ### Events and telemetry
 
@@ -110,6 +129,8 @@ configuration directory):
 | `RX_RING_SIZE` | 1024 | RX ring buffer size in bytes |
 | `RX_CHUNK_SIZE` | 256 | Maximum bytes per `allocate`/`recv` delivery |
 | `RX_TASK_WAKE_TIMEOUT_MS` | 100 | Safety-net wake period of the optional RX task |
+| `TX_RING_SIZE` | 2048 | TX ring buffer size in bytes; a frame larger than the free space is rejected whole |
+| `TX_RESUME_THRESHOLD` | 1024 | Free TX ring bytes required to signal `ready` after a rejected frame; must be >= the largest frame sent |
 
 Run-time: `configure(dev, baud)`; optional `start(priority, stackSize)`.
 
@@ -118,6 +139,7 @@ Run-time: `configure(dev, baud)`; optional `start(priority, stackSize)`.
 | Name | Severity | Description |
 |---|---|---|
 | `RxOverrun` | WARNING_LO, throttle 5 | Hardware overrun indication or ring put failure; cumulative count |
+| `TxFrameDropped` | WARNING_LO, throttle 5 | A frame did not fit in the TX ring and was rejected whole; size of the latest, cumulative count |
 
 ## Telemetry
 
@@ -127,11 +149,13 @@ Run-time: `configure(dev, baud)`; optional `start(priority, stackSize)`.
 | `RxOverrunCount` | U32 | Cumulative overrun indications |
 | `RxBackpressureCount` | U32 | Times the RX interrupt was paused because the ring was full |
 | `RxAllocFailCount` | U32 | Drain iterations that stalled for lack of a buffer |
+| `TxBytes` | U32 | Cumulative bytes moved from the TX ring into the device |
+| `TxDropCount` | U32 | Cumulative frames rejected by `send` |
 
 ## Memory
 
-Per instance: `RX_RING_SIZE` bytes of ring storage (unchanged from the previous implementation), a `k_sem`, an `Os::Task`
-object and a few atomics. The optional RX task stack comes from the Zephyr dynamic thread stack pool
+Per instance: `RX_RING_SIZE` bytes of RX ring storage (unchanged from the previous implementation), `TX_RING_SIZE` bytes
+of TX ring storage (new), a `k_sem`, an `Os::Task` object and a few atomics. The optional RX task stack comes from the Zephyr dynamic thread stack pool
 (`CONFIG_DYNAMIC_THREAD_POOL_SIZE` x `CONFIG_DYNAMIC_THREAD_STACK_SIZE`) and is only consumed when `start()` is called.
 
 ## Change Log
@@ -139,3 +163,4 @@ object and a few atomics. The optional RX task stack comes from the Zephyr dynam
 | Date | Description |
 |---|---|
 | 2026-10 | ISR back-pressure, bounded full-ring/event-driven RX drain, overrun event and telemetry, `start()` RX task |
+| 2026-10 | Interrupt-driven TX ring: non-blocking `send`, whole-frame reject with `OTHER_ERROR`, `ready` recovery at `TX_RESUME_THRESHOLD`, drop event and telemetry |

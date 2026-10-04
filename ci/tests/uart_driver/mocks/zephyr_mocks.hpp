@@ -31,6 +31,18 @@ struct MockUart {
     size_t txFifoFree() const { return txFifoDepth > txPending ? txFifoDepth - txPending : 0; }
 
     void reset() { *this = MockUart(); }
+    // The "wire" took everything the device FIFO held
+    void drainTxFifo() { txPending = 0; }
+    // Run interrupts and FIFO drains until the driver has nothing more to send
+    void transmitAll() {
+        for (int guard = 0; guard < 100000; guard++) {
+            pumpIsr();
+            if (!txIrqEnabled) {
+                break;
+            }
+            drainTxFifo();
+        }
+    }
     // Deliver interrupts while the device has data and the RX interrupt is enabled
     void pumpIsr() {
         for (int guard = 0;

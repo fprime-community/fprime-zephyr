@@ -5,6 +5,7 @@
 #include <Fw/FPrimeBasicTypes.hpp>
 
 #include <cstring>
+#include <utility>
 #include <vector>
 
 namespace Drv {
@@ -42,7 +43,9 @@ class ZephyrUartDriverComponentBase {
     void (*h_onRecv)() = nullptr;  // called from recv_out after delivery (simulate ISR refill)
     int h_outstanding = 0;         // buffers allocated and not yet returned
     std::vector<U32> h_rxOverrunEvents;
+    std::vector<std::pair<U32, U32>> h_txDropEvents;  // (frameSize, totalDrops)
     U32 h_tlmRxBytes = 0, h_tlmRxOverrun = 0, h_tlmRxBackpressure = 0, h_tlmRxAllocFail = 0;
+    U32 h_tlmTxBytes = 0, h_tlmTxDrops = 0;
 
     // --- port invocation (the generated base dispatches to the private handlers) ---
     void schedIn_handler_public(FwIndexType portNum, U32 context) { this->schedIn_handler(portNum, context); }
@@ -62,7 +65,9 @@ class ZephyrUartDriverComponentBase {
         h_allocFail = false;
         h_onRecv = nullptr;
         h_rxOverrunEvents.clear();
+        h_txDropEvents.clear();
         h_tlmRxBytes = h_tlmRxOverrun = h_tlmRxBackpressure = h_tlmRxAllocFail = 0;
+        h_tlmTxBytes = h_tlmTxDrops = 0;
         std::memset(m_used, 0, sizeof(m_used));
     }
 
@@ -115,6 +120,9 @@ class ZephyrUartDriverComponentBase {
     void tlmWrite_RxOverrunCount(U32 v) { h_tlmRxOverrun = v; }
     void tlmWrite_RxBackpressureCount(U32 v) { h_tlmRxBackpressure = v; }
     void tlmWrite_RxAllocFailCount(U32 v) { h_tlmRxAllocFail = v; }
+    void log_WARNING_LO_TxFrameDropped(U32 frameSize, U32 total) { h_txDropEvents.push_back({frameSize, total}); }
+    void tlmWrite_TxBytes(U32 v) { h_tlmTxBytes = v; }
+    void tlmWrite_TxDropCount(U32 v) { h_tlmTxDrops = v; }
 
   private:
     void release(Fw::Buffer& buffer) {

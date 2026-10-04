@@ -10,7 +10,8 @@ module Zephyr {
   @ a dedicated task woken directly by the interrupt. Exactly one of the two
   @ drains the ring.
   @
-  @ Transmit: `send` writes the frame synchronously with `uart_poll_out`.
+  @ Transmit: `send` queues the whole frame in a TX ring drained by the interrupt (or rejects
+  @ it with OTHER_ERROR when it does not fit); `ready` is re-signalled once the ring recovers.
   passive component ZephyrUartDriver {
     import Drv.ByteStreamDriver
 
@@ -52,6 +53,18 @@ module Zephyr {
       format "UART RX overrun, {} overrun(s) total" \
       throttle 5
 
+    @ A frame passed to `send` did not fit in the free space of the TX ring and
+    @ was rejected whole (OTHER_ERROR returned to the caller, nothing written to
+    @ the device). `ready` is signalled again once TX_RESUME_THRESHOLD bytes of
+    @ the ring are free. Reported from task context; the count is cumulative.
+    event TxFrameDropped(
+      frameSize: U32 @< Size in bytes of the most recently rejected frame
+      totalDrops: U32 @< Cumulative number of rejected frames
+    ) \
+      severity warning low \
+      format "UART TX frame of {} bytes dropped, {} drop(s) total" \
+      throttle 5
+
 
     ###############################################################################
     # Telemetry                                                                   #
@@ -70,6 +83,12 @@ module Zephyr {
     @ Cumulative number of drain iterations that stalled because no Fw.Buffer
     @ could be allocated (data stays in the ring and is retried)
     telemetry RxAllocFailCount: U32 update on change
+
+    @ Cumulative bytes moved from the TX ring into the device
+    telemetry TxBytes: U32 update on change
+
+    @ Cumulative frames rejected by `send` because they did not fit in the TX ring
+    telemetry TxDropCount: U32 update on change
 
   }
 }

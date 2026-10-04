@@ -26,8 +26,14 @@ ZephyrUartDriver ::ZephyrUartDriver(const char* const compName)
       m_rxOverruns(0),
       m_rxPauseCount(0),
       m_rxAllocFails(0),
-      m_rxOverrunsReported(0) {
+      m_rxOverrunsReported(0),
+      m_txStalled(false),
+      m_txBytes(0),
+      m_txDrops(0),
+      m_txLastDropSize(0),
+      m_txDropsReported(0) {
     ring_buf_init(&this->m_rxRing, static_cast<uint32_t>(ZephyrUartDriverCfg::RX_RING_SIZE), this->m_rxRingData);
+    ring_buf_init(&this->m_txRing, static_cast<uint32_t>(ZephyrUartDriverCfg::TX_RING_SIZE), this->m_txRingData);
     (void)k_sem_init(&this->m_wakeSem, 0, 1);
 }
 
@@ -118,6 +124,9 @@ void ZephyrUartDriver ::serial_cb(const struct device* dev, void* user_data) {
     if (uart_irq_rx_ready(dev) > 0) {
         received = self->isrReceive();
     }
+    if (uart_irq_tx_ready(dev) > 0) {
+        self->isrTransmit();
+    }
     if (received && self->m_taskStarted) {
         k_sem_give(&self->m_wakeSem);
     }
@@ -164,6 +173,34 @@ bool ZephyrUartDriver ::isrReceive() {
     return received;
 }
 
+void ZephyrUartDriver ::isrTransmit() {
+    // Feed the device FIFO from the ring: a claim covers one contiguous region, so an emptied
+    // ring takes at most two claims and the third returns 0
+    for (FwSizeType i = 0; i < MAX_ISR_CLAIMS; i++) {
+        U8* src = nullptr;
+        const FwSizeType claimed =
+            ring_buf_get_claim(&this->m_txRing, &src, static_cast<uint32_t>(ZephyrUartDriverCfg::TX_RING_SIZE));
+        if (claimed == 0) {
+            // Nothing left to send: silence the TX interrupt until the next send()
+            uart_irq_tx_disable(this->m_dev);
+            (void)ring_buf_get_finish(&this->m_txRing, 0);
+            return;
+        }
+        const int filled = uart_fifo_fill(this->m_dev, src, static_cast<int>(claimed));
+        if (filled <= 0) {
+            (void)ring_buf_get_finish(&this->m_txRing, 0);
+            return;  // device FIFO full, the interrupt fires again when it drains
+        }
+        if (ring_buf_get_finish(&this->m_txRing, static_cast<uint32_t>(filled)) != 0) {
+            return;  // cannot happen (filled <= claimed)
+        }
+        this->m_txBytes += static_cast<U32>(filled);
+        if (static_cast<FwSizeType>(filled) < claimed) {
+            return;  // device FIFO full
+        }
+    }
+}
+
 // ----------------------------------------------------------------------
 // Task-side processing
 // ----------------------------------------------------------------------
@@ -205,16 +242,34 @@ void ZephyrUartDriver ::resumeRxIfPaused() {
     }
 }
 
+void ZephyrUartDriver ::resumeTxIfStalled() {
+    const FwSizeType space = ring_buf_space_get(&this->m_txRing);
+    if (this->m_txStalled && (space >= ZephyrUartDriverCfg::TX_RESUME_THRESHOLD)) {
+        // A send() rejected concurrently after this clear sets the flag again for the next tick
+        this->m_txStalled = false;
+        if (this->isConnected_ready_OutputPort(0)) {
+            this->ready_out(0);
+        }
+    }
+}
+
 void ZephyrUartDriver ::reportStatus() {
     const U32 overruns = this->m_rxOverruns;
     if (overruns != this->m_rxOverrunsReported) {
         this->m_rxOverrunsReported = overruns;
         this->log_WARNING_LO_RxOverrun(overruns);
     }
+    const U32 drops = this->m_txDrops;
+    if (drops != this->m_txDropsReported) {
+        this->m_txDropsReported = drops;
+        this->log_WARNING_LO_TxFrameDropped(this->m_txLastDropSize, drops);
+    }
     this->tlmWrite_RxBytes(this->m_rxBytes);
     this->tlmWrite_RxOverrunCount(overruns);
     this->tlmWrite_RxBackpressureCount(this->m_rxPauseCount);
     this->tlmWrite_RxAllocFailCount(this->m_rxAllocFails);
+    this->tlmWrite_TxBytes(this->m_txBytes);
+    this->tlmWrite_TxDropCount(drops);
 }
 
 void ZephyrUartDriver ::rxTaskEntry(void* ptr) {
@@ -243,6 +298,7 @@ void ZephyrUartDriver ::schedIn_handler(FwIndexType portNum, U32 context) {
     } else {
         this->drainRx();
     }
+    this->resumeTxIfStalled();
     this->reportStatus();
 }
 
@@ -250,9 +306,21 @@ Drv::ByteStreamStatus ZephyrUartDriver ::send_handler(FwIndexType portNum, Fw::B
     if ((this->m_dev == nullptr) || (sendBuffer.getData() == nullptr)) {
         return Drv::ByteStreamStatus::OTHER_ERROR;
     }
-    for (FwSizeType i = 0; i < sendBuffer.getSize(); i++) {
-        uart_poll_out(this->m_dev, sendBuffer.getData()[i]);
+    const FwSizeType size = sendBuffer.getSize();
+    if (size == 0) {
+        return Drv::ByteStreamStatus::OP_OK;
     }
+    // Whole frame or nothing: a partial frame would only corrupt the stream for the peer
+    if (size > static_cast<FwSizeType>(ring_buf_space_get(&this->m_txRing))) {
+        this->m_txLastDropSize = static_cast<U32>(size);
+        this->m_txDrops++;
+        this->m_txStalled = true;
+        return Drv::ByteStreamStatus::OTHER_ERROR;
+    }
+    // send is guarded, so this is the only producer and the space checked above is still free
+    const FwSizeType put = ring_buf_put(&this->m_txRing, sendBuffer.getData(), static_cast<uint32_t>(size));
+    FW_ASSERT(put == size, static_cast<FwAssertArgType>(put), static_cast<FwAssertArgType>(size));
+    uart_irq_tx_enable(this->m_dev);
     return Drv::ByteStreamStatus::OP_OK;
 }
 

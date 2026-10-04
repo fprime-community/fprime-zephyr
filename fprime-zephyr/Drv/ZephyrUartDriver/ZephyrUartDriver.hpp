@@ -30,7 +30,9 @@ namespace Zephyr {
 //! (default) or, after `start()` is called from the topology, a dedicated task woken by the
 //! interrupt. Once `start()` succeeds, `schedIn` never touches the RX ring again.
 //!
-//! TX: `send` writes the frame synchronously with `uart_poll_out` on the caller's thread.
+//! TX: `send` copies the whole frame into a TX ring drained by the interrupt (`uart_fifo_fill`), or
+//! rejects it with OTHER_ERROR when it does not fit; `ready` is re-signalled from `schedIn` once
+//! TX_RESUME_THRESHOLD bytes are free again.
 //!
 //! All storage is in-class; there is no dynamic allocation after `start()`.
 class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
@@ -97,6 +99,9 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
                          ) override;
 
     //! Handler implementation for send
+    //!
+    //! Copies the whole frame into the TX ring and enables the TX interrupt; returns OTHER_ERROR
+    //! without writing anything when the frame does not fit. Never blocks on the device.
     Drv::ByteStreamStatus send_handler(FwIndexType portNum,    //!< The port number
                                        Fw::Buffer& sendBuffer  //!< Frame to transmit (caller retains ownership)
                                        ) override;
@@ -123,6 +128,12 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
     //! \brief Re-enable the RX interrupt if it was paused and the ring has room again
     void resumeRxIfPaused();
 
+    //! \brief Interrupt-side transmit: move TX ring bytes into the device FIFO, stop when empty
+    void isrTransmit();
+
+    //! \brief Signal `ready` again if a frame was rejected and the TX ring has recovered (task context)
+    void resumeTxIfStalled();
+
     //! \brief Publish telemetry and any pending overrun/drop events (task context)
     void reportStatus();
 
@@ -133,8 +144,8 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
     // Constants
     // ----------------------------------------------------------------------
 
-    //! Upper bound on ring claims per interrupt: a ring exposes at most two contiguous free
-    //! regions, so two full claims fill it and a third claim returns 0 (ring full)
+    //! Upper bound on ring claims per interrupt (RX put and TX get alike): a ring exposes at most
+    //! two contiguous regions, so two full claims exhaust it and a third claim returns 0
     static constexpr FwSizeType MAX_ISR_CLAIMS = 3;
 
     //! Upper bound on `recv` deliveries per drain: a full ring plus concurrent refill
@@ -164,6 +175,15 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
 
     std::atomic<U32> m_rxAllocFails;  //!< Drain stalls for lack of an Fw::Buffer (drain writes, schedIn reads)
     U32 m_rxOverrunsReported;         //!< Overruns already reported via event (schedIn context only)
+
+    struct ring_buf m_txRing;                            //!< TX ring (producer: send, consumer: ISR)
+    U8 m_txRingData[ZephyrUartDriverCfg::TX_RING_SIZE];  //!< TX ring storage
+
+    std::atomic<bool> m_txStalled;      //!< A frame was rejected; `ready` owed once the ring recovers
+    std::atomic<U32> m_txBytes;         //!< Bytes moved from the TX ring into the device
+    std::atomic<U32> m_txDrops;         //!< Frames rejected by send (send writes, schedIn reads)
+    std::atomic<U32> m_txLastDropSize;  //!< Size of the most recently rejected frame
+    U32 m_txDropsReported;              //!< Drops already reported via event (schedIn context only)
 };
 
 }  // end namespace Zephyr
