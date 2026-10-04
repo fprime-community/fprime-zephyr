@@ -4,117 +4,251 @@
 // \brief  cpp file for ZephyrUartDriver component implementation class
 // ======================================================================
 
-
 #include "fprime-zephyr/Drv/ZephyrUartDriver/ZephyrUartDriver.hpp"
-#include "Fw/Types/BasicTypes.hpp"
-#include "Fw/Types/Assert.hpp"
+
 #include <Fw/FPrimeBasicTypes.hpp>
+#include <Fw/Logger/Logger.hpp>
+#include <Fw/Types/Assert.hpp>
 
 namespace Zephyr {
 
-    // ----------------------------------------------------------------------
-    // Construction, initialization, and destruction
-    // ----------------------------------------------------------------------
+// ----------------------------------------------------------------------
+// Construction, initialization, and destruction
+// ----------------------------------------------------------------------
 
-    ZephyrUartDriver ::
-        ZephyrUartDriver(
-            const char *const compName
-        ) : ZephyrUartDriverComponentBase(compName)
-    {
+ZephyrUartDriver ::ZephyrUartDriver(const char* const compName)
+    : ZephyrUartDriverComponentBase(compName),
+      m_dev(nullptr),
+      m_taskStarted(false),
+      m_quit(false),
+      m_rxPaused(false),
+      m_rxBytes(0),
+      m_rxOverruns(0),
+      m_rxPauseCount(0),
+      m_rxAllocFails(0),
+      m_rxOverrunsReported(0) {
+    ring_buf_init(&this->m_rxRing, static_cast<uint32_t>(ZephyrUartDriverCfg::RX_RING_SIZE), this->m_rxRingData);
+    (void)k_sem_init(&this->m_wakeSem, 0, 1);
+}
+
+ZephyrUartDriver ::~ZephyrUartDriver() {}
+
+void ZephyrUartDriver ::configure(const struct device* dev, U32 baud_rate) {
+    FW_ASSERT(dev != nullptr);
+    FW_ASSERT(this->m_dev == nullptr);  // configure once
+
+    if (!device_is_ready(dev)) {
+        Fw::Logger::log("ZephyrUartDriver: device %s is not ready\n", dev->name);
+        return;
+    }
+    this->m_dev = dev;
+
+    struct uart_config uart_cfg = {
+        .baudrate = baud_rate,
+        .parity = UART_CFG_PARITY_NONE,
+        .stop_bits = UART_CFG_STOP_BITS_1,
+        .data_bits = UART_CFG_DATA_BITS_8,
+        .flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
+    };
+    // Not supported (-ENOSYS/-ENOTSUP) by every device, e.g. CDC ACM ignores the baud rate
+    (void)uart_configure(this->m_dev, &uart_cfg);
+
+    (void)uart_irq_callback_user_data_set(this->m_dev, serial_cb, this);
+    uart_irq_tx_disable(this->m_dev);
+    uart_irq_rx_enable(this->m_dev);
+
+    if (this->isConnected_ready_OutputPort(0)) {
+        this->ready_out(0);
+    }
+}
+
+Os::Task::Status ZephyrUartDriver ::start(FwTaskPriorityType priority, FwSizeType stackSize) {
+    FW_ASSERT(this->m_dev != nullptr);  // configure() first
+    FW_ASSERT(!this->m_taskStarted);    // start at most once
+
+    // Claim the ring before the task exists so schedIn stops draining before the task begins
+    this->m_taskStarted = true;
+    Os::TaskString name("UartRx");
+    Os::Task::Arguments arguments(name, rxTaskEntry, this, priority, stackSize);
+    const Os::Task::Status status = this->m_rxTask.start(arguments);
+    if (status != Os::Task::OP_OK) {
+        // Degrade to the rate-group drain rather than asserting at boot
+        this->m_taskStarted = false;
+        Fw::Logger::log("ZephyrUartDriver: RX task start failed (%d), draining from schedIn\n",
+                        static_cast<int>(status));
+    }
+    return status;
+}
+
+void ZephyrUartDriver ::stop() {
+    this->m_quit = true;
+    k_sem_give(&this->m_wakeSem);
+}
+
+Os::Task::Status ZephyrUartDriver ::join() {
+    if (!this->m_taskStarted) {
+        return Os::Task::OP_OK;
+    }
+    return this->m_rxTask.join();
+}
+
+// ----------------------------------------------------------------------
+// Interrupt-side processing
+// ----------------------------------------------------------------------
+
+void ZephyrUartDriver ::serial_cb(const struct device* dev, void* user_data) {
+    ZephyrUartDriver* self = static_cast<ZephyrUartDriver*>(user_data);
+    if ((self == nullptr) || (dev == nullptr) || (self->m_dev != dev)) {
+        return;
+    }
+    if (uart_irq_update(dev) != 1) {
+        return;
     }
 
-    ZephyrUartDriver ::
-        ~ZephyrUartDriver()
-    {
+    bool received = false;
+    if (uart_irq_rx_ready(dev) > 0) {
+        received = self->isrReceive();
+    }
+    if (received && self->m_taskStarted) {
+        k_sem_give(&self->m_wakeSem);
+    }
+}
 
+bool ZephyrUartDriver ::isrReceive() {
+    // Hardware overrun flags (device FIFO overflowed). CDC ACM and some drivers do not implement
+    // err_check and return a negative errno, which is ignored.
+    const int errors = uart_err_check(this->m_dev);
+    if ((errors > 0) && ((static_cast<unsigned int>(errors) & UART_ERROR_OVERRUN) != 0)) {
+        this->m_rxOverruns++;
     }
 
-    void ZephyrUartDriver::configure(const struct device *dev, U32 baud_rate) {
-        FW_ASSERT(dev != nullptr);
-        m_dev = dev;
-
-        if (!device_is_ready(this->m_dev)) {
-            return;
+    bool received = false;
+    // Read directly into the ring (bounded by the ring size: each claim consumes space and the
+    // loop ends when the ring is full or the device FIFO is empty)
+    while (true) {
+        U8* dst = nullptr;
+        const uint32_t claimed =
+            ring_buf_put_claim(&this->m_rxRing, &dst, static_cast<uint32_t>(ZephyrUartDriverCfg::RX_RING_SIZE));
+        if (claimed == 0) {
+            // Ring full: stop reading so the device (or the USB host) holds the data instead
+            uart_irq_rx_disable(this->m_dev);
+            this->m_rxPaused = true;
+            this->m_rxPauseCount++;
+            break;
         }
+        const int read = uart_fifo_read(this->m_dev, dst, static_cast<int>(claimed));
+        if (read <= 0) {
+            (void)ring_buf_put_finish(&this->m_rxRing, 0);
+            break;
+        }
+        if (ring_buf_put_finish(&this->m_rxRing, static_cast<uint32_t>(read)) != 0) {
+            // Cannot happen (read <= claimed); treat as lost data rather than trusting the ring
+            this->m_rxOverruns++;
+            break;
+        }
+        this->m_rxBytes += static_cast<U32>(read);
+        received = true;
+        if (static_cast<uint32_t>(read) < claimed) {
+            break;  // device FIFO drained
+        }
+    }
+    return received;
+}
 
-        struct uart_config uart_cfg = {
-            .baudrate = baud_rate,
-            .parity = UART_CFG_PARITY_NONE,
-            .stop_bits = UART_CFG_STOP_BITS_1,
-            .data_bits = UART_CFG_DATA_BITS_8,
-            .flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
-        };
-        uart_configure(this->m_dev, &uart_cfg);
+// ----------------------------------------------------------------------
+// Task-side processing
+// ----------------------------------------------------------------------
 
-        ring_buf_init(&this->m_ring_buf, RING_BUF_SIZE, this->m_ring_buf_data);
-        uart_irq_callback_user_data_set(this->m_dev, serial_cb, &this->m_ring_buf);
+void ZephyrUartDriver ::drainRx() {
+    for (FwSizeType i = 0; i < MAX_DRAIN_ITERATIONS; i++) {
+        const uint32_t available = ring_buf_size_get(&this->m_rxRing);
+        if (available == 0) {
+            break;
+        }
+        const FwSizeType request = FW_MIN(static_cast<FwSizeType>(available), ZephyrUartDriverCfg::RX_CHUNK_SIZE);
+        Fw::Buffer buffer = this->allocate_out(0, request);
+        if ((buffer.getData() == nullptr) || (buffer.getSize() == 0)) {
+            // Allocator exhausted (e.g. Svc::BufferManager returns an empty buffer): leave the
+            // data in the ring, do not hand the empty buffer back, retry on the next drain
+            this->m_rxAllocFails++;
+            break;
+        }
+        const uint32_t size = static_cast<uint32_t>(FW_MIN(buffer.getSize(), request));
+        const uint32_t got = ring_buf_get(&this->m_rxRing, buffer.getData(), size);
+        if (got == 0) {
+            this->deallocate_out(0, buffer);
+            break;
+        }
+        buffer.setSize(got);
+        // Give the interrupt room to refill while the frame is processed downstream
+        this->resumeRxIfPaused();
+        this->recv_out(0, buffer, Drv::ByteStreamStatus::OP_OK);
+    }
+    this->resumeRxIfPaused();
+}
 
+void ZephyrUartDriver ::resumeRxIfPaused() {
+    if (this->m_rxPaused &&
+        (ring_buf_space_get(&this->m_rxRing) >= static_cast<uint32_t>(ZephyrUartDriverCfg::RX_CHUNK_SIZE))) {
+        // The RX interrupt is disabled while paused, so the ISR cannot race this clear
+        this->m_rxPaused = false;
         uart_irq_rx_enable(this->m_dev);
-	    uart_irq_tx_disable(this->m_dev);
-
-        if (this->isConnected_ready_OutputPort(0)) {
-            this->ready_out(0);
-        }
     }
+}
 
-    void ZephyrUartDriver::serial_cb(const struct device *dev, void *user_data)
-    {
-        struct ring_buf *ring_buf = reinterpret_cast<struct ring_buf *>(user_data);
-
-        if (!uart_irq_update(dev)) {
-            return;
-        }
-
-        if (!uart_irq_rx_ready(dev)) {
-            return;
-        }
-
-        U8 c;
-        // TODO: Get rid of the endless loop (in an IRQ handler!).
-        while (uart_fifo_read(dev, &c, 1) == 1) {
-            if (ring_buf_put(ring_buf, &c, 1) != 1) {
-                // TODO: Handle properly.
-                printk("UART buffer overrun\n");
-            }
-        }
+void ZephyrUartDriver ::reportStatus() {
+    const U32 overruns = this->m_rxOverruns;
+    if (overruns != this->m_rxOverrunsReported) {
+        this->m_rxOverrunsReported = overruns;
+        this->log_WARNING_LO_RxOverrun(overruns);
     }
+    this->tlmWrite_RxBytes(this->m_rxBytes);
+    this->tlmWrite_RxOverrunCount(overruns);
+    this->tlmWrite_RxBackpressureCount(this->m_rxPauseCount);
+    this->tlmWrite_RxAllocFailCount(this->m_rxAllocFails);
+}
 
-    // ----------------------------------------------------------------------
-    // Handler implementations for user-defined typed input ports
-    // ----------------------------------------------------------------------
-
-    void ZephyrUartDriver ::
-        schedIn_handler(
-            const FwIndexType portNum,
-            U32 context
-        )
-    {
-        Fw::Buffer recv_buffer = this->allocate_out(0, SERIAL_BUFFER_SIZE);
-
-        U32 recv_size = ring_buf_get(&this->m_ring_buf, recv_buffer.getData(), recv_buffer.getSize());
-        if (recv_size == 0) {
-            // No data received, deallocate buffer
-            this->deallocate_out(0, recv_buffer);
-        } else {
-            recv_buffer.setSize(recv_size);
-            recv_out(0, recv_buffer, Drv::ByteStreamStatus::OP_OK);
+void ZephyrUartDriver ::rxTaskEntry(void* ptr) {
+    FW_ASSERT(ptr != nullptr);
+    ZephyrUartDriver* self = static_cast<ZephyrUartDriver*>(ptr);
+    while (!self->m_quit) {
+        (void)k_sem_take(&self->m_wakeSem, K_MSEC(ZephyrUartDriverCfg::RX_TASK_WAKE_TIMEOUT_MS));
+        if (self->m_quit) {
+            break;
         }
+        self->drainRx();
     }
+}
 
-    Drv::ByteStreamStatus ZephyrUartDriver ::
-        send_handler(
-            const FwIndexType portNum,
-            Fw::Buffer &sendBuffer
-        )
-    {
-        for (U32 i = 0; i < sendBuffer.getSize(); i++) {
-            uart_poll_out(this->m_dev, sendBuffer.getData()[i]);
-        }
-        return Drv::ByteStreamStatus::OP_OK;
+// ----------------------------------------------------------------------
+// Handler implementations for user-defined typed input ports
+// ----------------------------------------------------------------------
+
+void ZephyrUartDriver ::schedIn_handler(FwIndexType portNum, U32 context) {
+    if (this->m_dev == nullptr) {
+        return;
     }
-
-    void ZephyrUartDriver ::recvReturnIn_handler(const FwIndexType portNum, Fw::Buffer &returnBuffer) {
-        this->deallocate_out(0, returnBuffer);
+    if (this->m_taskStarted) {
+        // The RX task is the only reader of the RX ring; just make sure it is awake
+        k_sem_give(&this->m_wakeSem);
+    } else {
+        this->drainRx();
     }
+    this->reportStatus();
+}
 
-} // end namespace Zephyr
+Drv::ByteStreamStatus ZephyrUartDriver ::send_handler(FwIndexType portNum, Fw::Buffer& sendBuffer) {
+    if ((this->m_dev == nullptr) || (sendBuffer.getData() == nullptr)) {
+        return Drv::ByteStreamStatus::OTHER_ERROR;
+    }
+    for (FwSizeType i = 0; i < sendBuffer.getSize(); i++) {
+        uart_poll_out(this->m_dev, sendBuffer.getData()[i]);
+    }
+    return Drv::ByteStreamStatus::OP_OK;
+}
+
+void ZephyrUartDriver ::recvReturnIn_handler(FwIndexType portNum, Fw::Buffer& returnBuffer) {
+    this->deallocate_out(0, returnBuffer);
+}
+
+}  // end namespace Zephyr
