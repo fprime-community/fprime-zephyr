@@ -122,7 +122,7 @@ Run-time: `configure(dev, baud)`; optional `start(priority, stackSize)`.
 
 | Name | Type | Description |
 |---|---|---|
-| `RxBytes` | U32 | Cumulative bytes moved from the device into the RX ring |
+| `RxBytes` | FwSizeType | Cumulative bytes moved from the device into the RX ring |
 | `RxOverrunCount` | U32 | Cumulative overrun indications |
 | `RxBackpressureCount` | U32 | Times the RX interrupt was paused because the ring was full |
 | `RxAllocFailCount` | U32 | Drain iterations that stalled for lack of a buffer |

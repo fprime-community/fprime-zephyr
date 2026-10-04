@@ -132,11 +132,11 @@ bool ZephyrUartDriver ::isrReceive() {
     }
 
     bool received = false;
-    // Read directly into the ring (bounded by the ring size: each claim consumes space and the
-    // loop ends when the ring is full or the device FIFO is empty)
-    while (true) {
+    // Read directly into the ring: a claim covers one contiguous free region, so a full ring
+    // takes at most two claims and the third returns 0
+    for (FwSizeType i = 0; i < MAX_ISR_CLAIMS; i++) {
         U8* dst = nullptr;
-        const uint32_t claimed =
+        const FwSizeType claimed =
             ring_buf_put_claim(&this->m_rxRing, &dst, static_cast<uint32_t>(ZephyrUartDriverCfg::RX_RING_SIZE));
         if (claimed == 0) {
             // Ring full: stop reading so the device (or the USB host) holds the data instead
@@ -155,9 +155,9 @@ bool ZephyrUartDriver ::isrReceive() {
             this->m_rxOverruns++;
             break;
         }
-        this->m_rxBytes += static_cast<U32>(read);
+        this->m_rxBytes += static_cast<FwSizeType>(read);
         received = true;
-        if (static_cast<uint32_t>(read) < claimed) {
+        if (static_cast<FwSizeType>(read) < claimed) {
             break;  // device FIFO drained
         }
     }
@@ -170,11 +170,11 @@ bool ZephyrUartDriver ::isrReceive() {
 
 void ZephyrUartDriver ::drainRx() {
     for (FwSizeType i = 0; i < MAX_DRAIN_ITERATIONS; i++) {
-        const uint32_t available = ring_buf_size_get(&this->m_rxRing);
+        const FwSizeType available = ring_buf_size_get(&this->m_rxRing);
         if (available == 0) {
             break;
         }
-        const FwSizeType request = FW_MIN(static_cast<FwSizeType>(available), ZephyrUartDriverCfg::RX_CHUNK_SIZE);
+        const FwSizeType request = FW_MIN(available, ZephyrUartDriverCfg::RX_CHUNK_SIZE);
         Fw::Buffer buffer = this->allocate_out(0, request);
         if ((buffer.getData() == nullptr) || (buffer.getSize() == 0)) {
             // Allocator exhausted (e.g. Svc::BufferManager returns an empty buffer): leave the
@@ -182,8 +182,8 @@ void ZephyrUartDriver ::drainRx() {
             this->m_rxAllocFails++;
             break;
         }
-        const uint32_t size = static_cast<uint32_t>(FW_MIN(buffer.getSize(), request));
-        const uint32_t got = ring_buf_get(&this->m_rxRing, buffer.getData(), size);
+        const FwSizeType size = FW_MIN(buffer.getSize(), request);
+        const FwSizeType got = ring_buf_get(&this->m_rxRing, buffer.getData(), static_cast<uint32_t>(size));
         if (got == 0) {
             this->deallocate_out(0, buffer);
             break;
@@ -197,8 +197,8 @@ void ZephyrUartDriver ::drainRx() {
 }
 
 void ZephyrUartDriver ::resumeRxIfPaused() {
-    if (this->m_rxPaused &&
-        (ring_buf_space_get(&this->m_rxRing) >= static_cast<uint32_t>(ZephyrUartDriverCfg::RX_CHUNK_SIZE))) {
+    const FwSizeType space = ring_buf_space_get(&this->m_rxRing);
+    if (this->m_rxPaused && (space >= ZephyrUartDriverCfg::RX_CHUNK_SIZE)) {
         // The RX interrupt is disabled while paused, so the ISR cannot race this clear
         this->m_rxPaused = false;
         uart_irq_rx_enable(this->m_dev);

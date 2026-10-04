@@ -133,6 +133,10 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
     // Constants
     // ----------------------------------------------------------------------
 
+    //! Upper bound on ring claims per interrupt: a ring exposes at most two contiguous free
+    //! regions, so two full claims fill it and a third claim returns 0 (ring full)
+    static constexpr FwSizeType MAX_ISR_CLAIMS = 3;
+
     //! Upper bound on `recv` deliveries per drain: a full ring plus concurrent refill
     static constexpr FwSizeType MAX_DRAIN_ITERATIONS =
         (2 * ZephyrUartDriverCfg::RX_RING_SIZE) / ZephyrUartDriverCfg::RX_CHUNK_SIZE + 1;
@@ -153,9 +157,9 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
     std::atomic<bool> m_quit;         //!< RX task exit request
     std::atomic<bool> m_rxPaused;     //!< RX interrupt disabled because the ring was full
 
-    std::atomic<U32> m_rxBytes;       //!< Bytes moved from the device into the RX ring
-    std::atomic<U32> m_rxOverruns;    //!< Hardware overrun indications + ring put failures
-    std::atomic<U32> m_rxPauseCount;  //!< Back-pressure engagements
+    std::atomic<FwSizeType> m_rxBytes;  //!< Bytes moved from the device into the RX ring
+    std::atomic<U32> m_rxOverruns;      //!< Hardware overrun indications + ring put failures
+    std::atomic<U32> m_rxPauseCount;    //!< Back-pressure engagements
 
     std::atomic<U32> m_rxAllocFails;  //!< Drain stalls for lack of an Fw::Buffer (drain writes, schedIn reads)
     U32 m_rxOverrunsReported;         //!< Overruns already reported via event (schedIn context only)

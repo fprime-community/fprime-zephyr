@@ -42,7 +42,8 @@ class ZephyrUartDriverComponentBase {
     void (*h_onRecv)() = nullptr;  // called from recv_out after delivery (simulate ISR refill)
     int h_outstanding = 0;         // buffers allocated and not yet returned
     std::vector<U32> h_rxOverrunEvents;
-    U32 h_tlmRxBytes = 0, h_tlmRxOverrun = 0, h_tlmRxBackpressure = 0, h_tlmRxAllocFail = 0;
+    FwSizeType h_tlmRxBytes = 0;
+    U32 h_tlmRxOverrun = 0, h_tlmRxBackpressure = 0, h_tlmRxAllocFail = 0;
 
     // --- port invocation (the generated base dispatches to the private handlers) ---
     void schedIn_handler_public(FwIndexType portNum, U32 context) { this->schedIn_handler(portNum, context); }
@@ -111,7 +112,7 @@ class ZephyrUartDriverComponentBase {
 
     // --- events / telemetry ---
     void log_WARNING_LO_RxOverrun(U32 total) { h_rxOverrunEvents.push_back(total); }
-    void tlmWrite_RxBytes(U32 v) { h_tlmRxBytes = v; }
+    void tlmWrite_RxBytes(FwSizeType v) { h_tlmRxBytes = v; }
     void tlmWrite_RxOverrunCount(U32 v) { h_tlmRxOverrun = v; }
     void tlmWrite_RxBackpressureCount(U32 v) { h_tlmRxBackpressure = v; }
     void tlmWrite_RxAllocFailCount(U32 v) { h_tlmRxAllocFail = v; }
