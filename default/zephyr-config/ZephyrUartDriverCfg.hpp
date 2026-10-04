@@ -20,8 +20,8 @@ namespace ZephyrUartDriverCfg {
 static constexpr FwSizeType RX_RING_SIZE = 1024;
 
 //! Maximum size in bytes of a single Fw::Buffer requested from the allocator
-//! and delivered on the `recv` port per drain iteration. Must be <=
-//! RX_RING_SIZE and <= the smallest buffer the connected allocator can provide.
+//! and delivered on the `recv` port per drain iteration. Must be <= RX_RING_SIZE
+//! and <= the smallest buffer the connected allocator can provide.
 static constexpr FwSizeType RX_CHUNK_SIZE = 256;
 
 //! Period in milliseconds after which the optional RX task wakes even when

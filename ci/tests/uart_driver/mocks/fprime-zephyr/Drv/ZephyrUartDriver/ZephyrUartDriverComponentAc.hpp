@@ -1,5 +1,4 @@
-// Stub of the FPP-generated component base: records port calls and serves
-// buffers from a pool
+// Stub of the FPP-generated component base: records port calls and serves buffers from a pool
 #ifndef ZEPHYR_UART_DRIVER_COMPONENT_AC_HPP
 #define ZEPHYR_UART_DRIVER_COMPONENT_AC_HPP
 #include <Fw/Buffer.hpp>
@@ -45,8 +44,7 @@ class ZephyrUartDriverComponentBase {
     std::vector<U32> h_rxOverrunEvents;
     U32 h_tlmRxBytes = 0, h_tlmRxOverrun = 0, h_tlmRxBackpressure = 0, h_tlmRxAllocFail = 0;
 
-    // --- port invocation (the generated base dispatches to the private handlers)
-    // ---
+    // --- port invocation (the generated base dispatches to the private handlers) ---
     void schedIn_handler_public(FwIndexType portNum, U32 context) { this->schedIn_handler(portNum, context); }
     Drv::ByteStreamStatus send_handler_public(FwIndexType portNum, Fw::Buffer& buffer) {
         return this->send_handler(portNum, buffer);
@@ -103,8 +101,7 @@ class ZephyrUartDriverComponentBase {
         r.status = status.e;
         h_recvStream.insert(h_recvStream.end(), r.data.begin(), r.data.end());
         h_recv.push_back(r);
-        release(buffer);  // downstream returns the buffer (recvReturnIn ->
-                          // deallocate) immediately
+        release(buffer);  // downstream returns the buffer (recvReturnIn -> deallocate) immediately
         if (h_onRecv != nullptr) {
             h_onRecv();
         }

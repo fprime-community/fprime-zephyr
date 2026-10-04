@@ -97,8 +97,7 @@ extern "C" void uart_poll_out(const struct device*, unsigned char out_char) {
     g_uart.txOut.push_back(static_cast<uint8_t>(out_char));
 }
 
-// --- sys/ring_buffer.h: mirrors the Zephyr semantics (contiguous claims,
-// finish <= claim) ---
+// --- sys/ring_buffer.h: mirrors the Zephyr semantics (contiguous claims, finish <= claim) ---
 extern "C" void ring_buf_init(struct ring_buf* buf, uint32_t size, uint8_t* data) {
     buf->buffer = data;
     buf->size = size;

@@ -132,8 +132,7 @@ static void test_backpressure_no_loss() {
     CHECK(!g_uart.rxIrqEnabled);                               // paused
     CHECK(g_uart.rxFifo.size() == total - Cfg::RX_RING_SIZE);  // nothing discarded
     CHECK(g_uart.rxDisableCount == 1);
-    // Each tick drains, which re-enables RX; the "device" then raises more
-    // interrupts
+    // Each tick drains, which re-enables RX; the "device" then raises more interrupts
     for (int tick = 0; tick < 8 && drv.h_recvStream.size() < total; tick++) {
         drv.schedIn_handler_public(0, 0);
         g_uart.pumpIsr();
@@ -300,8 +299,7 @@ static void test_configure_logs_missing_irq_api() {
 }
 
 static void refillRingFromRecv() {
-    // The "device" keeps delivering while the drain runs: refill the ring after
-    // every chunk
+    // The "device" keeps delivering while the drain runs: refill the ring after every chunk
     g_uart.rxFifo = pattern(Cfg::RX_CHUNK_SIZE, 11);
     g_uart.pumpIsr();
 }
@@ -320,8 +318,7 @@ static void test_drain_bounded_under_continuous_refill() {
     const size_t maxIterations = (2 * Cfg::RX_RING_SIZE) / Cfg::RX_CHUNK_SIZE + 1;
     CHECK(drv.h_recv.size() == maxIterations);
     CHECK(drv.h_recvStream.size() == maxIterations * Cfg::RX_CHUNK_SIZE);
-    // Every chunk drained was replaced, so a full ring is still pending for the
-    // next tick
+    // Every chunk drained was replaced, so a full ring is still pending for the next tick
     drv.h_onRecv = nullptr;
     const size_t before = drv.h_recvStream.size();
     drv.schedIn_handler_public(0, 0);

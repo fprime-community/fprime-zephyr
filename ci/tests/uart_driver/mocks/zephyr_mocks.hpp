@@ -31,8 +31,7 @@ struct MockUart {
     size_t txFifoFree() const { return txFifoDepth > txPending ? txFifoDepth - txPending : 0; }
 
     void reset() { *this = MockUart(); }
-    // Deliver interrupts while the device has data and the RX interrupt is
-    // enabled
+    // Deliver interrupts while the device has data and the RX interrupt is enabled
     void pumpIsr() {
         for (int guard = 0;
              (guard < 100000) && (callback != nullptr) && (uart_irq_rx_ready(nullptr) || uart_irq_tx_ready(nullptr));
