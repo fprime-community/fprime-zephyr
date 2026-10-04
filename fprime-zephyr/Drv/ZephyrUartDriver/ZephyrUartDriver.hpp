@@ -155,8 +155,8 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
     std::atomic<U32> m_rxOverruns;    //!< Hardware overrun indications + ring put failures
     std::atomic<U32> m_rxPauseCount;  //!< Back-pressure engagements
 
-    std::atomic<U32> m_rxAllocFails;        //!< Drain stalls for lack of an Fw::Buffer (drain context only)
-    U32 m_rxOverrunsReported;  //!< Overruns already reported via event (schedIn context only)
+    std::atomic<U32> m_rxAllocFails;  //!< Drain stalls for lack of an Fw::Buffer (drain writes, schedIn reads)
+    U32 m_rxOverrunsReported;         //!< Overruns already reported via event (schedIn context only)
 };
 
 }  // end namespace Zephyr
