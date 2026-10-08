@@ -17,6 +17,14 @@ static_assert((0 < LoRaConfig::MIN_FREQUENCY) && (LoRaConfig::MIN_FREQUENCY <= L
                   (LoRaConfig::FREQUENCY <= LoRaConfig::MAX_FREQUENCY),
               "LoRaConfig: FREQUENCY must lie within a non-zero MIN_FREQUENCY to MAX_FREQUENCY");
 
+// LoRaBandwidth is cast straight into Zephyr's lora_signal_bandwidth, so the encodings must agree
+static_assert(static_cast<U16>(LoRaBandwidth::BW_125_KHZ) == ::BW_125_KHZ,
+              "LoRaBandwidth::BW_125_KHZ must match Zephyr's lora_signal_bandwidth");
+static_assert(static_cast<U16>(LoRaBandwidth::BW_250_KHZ) == ::BW_250_KHZ,
+              "LoRaBandwidth::BW_250_KHZ must match Zephyr's lora_signal_bandwidth");
+static_assert(static_cast<U16>(LoRaBandwidth::BW_500_KHZ) == ::BW_500_KHZ,
+              "LoRaBandwidth::BW_500_KHZ must match Zephyr's lora_signal_bandwidth");
+
 // Active LoRa modem configuration; frequency is the current carrier set at boot or by SET_FREQ
 struct lora_modem_config BASE_CONFIG = {
     .frequency = LoRaConfig::FREQUENCY,

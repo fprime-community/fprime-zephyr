@@ -17,7 +17,7 @@ manifest:
     # Zephyr RTOS core
     - name: zephyr
       repo-path: zephyr
-      revision: v4.3.0
+      revision: v4.4.2
       path: lib/zephyr-workspace/zephyr
       west-commands: scripts/west-commands.yml
       import:
@@ -42,24 +42,24 @@ manifest:
 
     - name: cmsis_6
       repo-path: CMSIS_6
-      revision: 06d952b6713a2ca41c9224a62075e4059402a151
+      revision: 30a859f44ef8ab4dc8f84b03ed586fd16ccf9d74
       path: lib/zephyr-workspace/modules/hal/cmsis_6
       groups:
         - hal
 
     - name: hal_rpi_pico
       path: lib/zephyr-workspace/modules/hal/rpi_pico
-      revision: 09e957522da60581cf7958b31f8e625d969c69a5
+      revision: 562b41e10a1d8b1a761b253b107c5c6a84cf4535
       groups:
         - hal
 
     - name: picolibc
       path: lib/zephyr-workspace/modules/lib/picolibc
-      revision: 560946f26db075c296beea5b39d99e6de43c9010
+      revision: 01254932e8e81085817ed61fd858648584ffe37c
 
     - name: hal_nxp
       path: lib/zephyr-workspace/modules/hal/nxp
-      revision: 5ed89d62447f9700520cfc7c80414a60739e7d9f
+      revision: 7554bc0f6f6c284972eba7b2c17b16fbb9cc0ad0
       groups:
         - hal
 
