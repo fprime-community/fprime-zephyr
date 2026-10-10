@@ -7,8 +7,24 @@
 #include "fprime-zephyr/Drv/LoRa/LoRa.hpp"
 #include "zephyr-config/LoRaCfg.hpp"
 #include <Fw/Logger/Logger.hpp>
+#include <zephyr/kernel.h>
 #include <errno.h>
+#if defined(CONFIG_HAS_SEMTECH_SX1276)
+#include <radio.h>
+#include <sx1276/sx1276Regs-LoRa.h>
+#define ZEPHYR_LORA_HAS_MODEM_STATUS 1
+#elif defined(CONFIG_HAS_SEMTECH_SX1272)
+#include <radio.h>
+#include <sx1272/sx1272Regs-LoRa.h>
+#define ZEPHYR_LORA_HAS_MODEM_STATUS 1
+#endif
 namespace Zephyr {
+
+namespace {
+// SX127x RegModemStat: a packet is mid-air when signal synchronized (0x08) or header valid (0x02).
+// RX on-going (0x04) is set for the whole of RxContinuous mode and so does not indicate a packet.
+constexpr U8 SX127X_MODEM_STAT_RX_ACTIVE_MASK = 0x0A;
+}  // namespace
 
 // Margin past a continuous wave's duration for the driver to release the modem
 static constexpr U32 CW_TEARDOWN_MARGIN_US = 250000;
@@ -80,7 +96,8 @@ LoRa::Status LoRa ::enableTx() {
     const LoRaBandwidth bandwidth = this->paramGet_BANDWIDTH_TX(isValid);
     FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
 
-    // Disable async receive while in TX mode
+    // Release the idle RxContinuous listen so the driver grants the modem to TX; callers must first
+    // check receiveInProgress() so a packet mid-air is never aborted here
     int status = lora_recv_async(this->m_lora_device, nullptr, nullptr);
     if (status == 0) {
         // Update BASE_CONFIG in-place to save on stack space
@@ -92,6 +109,20 @@ LoRa::Status LoRa ::enableTx() {
         status = lora_config(this->m_lora_device, &BASE_CONFIG);
     }
     return (status < 0) ? Status::ERROR : Status::SUCCESS;
+}
+
+bool LoRa ::receiveInProgress() {
+#if defined(ZEPHYR_LORA_HAS_MODEM_STATUS)
+    const U8 modem_status = Radio.Read(REG_LR_MODEMSTAT);
+    return (modem_status & SX127X_MODEM_STAT_RX_ACTIVE_MASK) != 0;
+#else
+    return false;
+#endif
+}
+
+bool LoRa ::channelBusy() {
+    return this->receiveInProgress() ||
+           ((k_uptime_get_32() - this->m_last_rx_ms.load()) < LoRaConfig::RX_HOLDOFF_MS);
 }
 
 LoRa::Status LoRa ::enableRx(bool initial) {
@@ -135,7 +166,13 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     FW_ASSERT(this->m_lora_device != nullptr);
     FW_ASSERT(device_is_ready(this->m_lora_device));
     Fw::Success returnStatus = Fw::Success::FAILURE;
-    if ((this->m_transmit_enabled == TransmitState::ENABLED) && !this->updateContinuousWave()) {
+    bool deferred = false;
+    if ((this->m_transmit_enabled == TransmitState::ENABLED) && this->channelBusy()) {
+        // Defer rather than abort the receive; run_handler emits the recovery SUCCESS owed for this FAILURE
+        deferred = true;
+        this->m_transmits_deferred++;
+        this->tlmWrite_TransmitsDeferred(this->m_transmits_deferred);
+    } else if ((this->m_transmit_enabled == TransmitState::ENABLED) && !this->updateContinuousWave()) {
         Status status = this->enableTx();
         if (status == Status::SUCCESS) {
             (void)::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
@@ -166,11 +203,12 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     }
     this->dataReturnOut_out(0, data, context);
     this->comStatusOut_out(0, returnStatus);
-}
-
-void LoRa ::run_handler(FwIndexType portNum, U32 context) {
-    Os::ScopeLock lock(this->m_mutex);
-    (void)this->updateContinuousWave();
+    // Arm only after the FAILURE is delivered so the recovery SUCCESS can never overtake it
+    if (deferred) {
+        Os::ScopeLock recoveryLock(this->m_recovery_mutex);
+        this->m_recovery_pending = true;
+        this->m_deferred_at_ms = k_uptime_get_32();
+    }
 }
 
 void LoRa ::dataReturnIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::FrameContext& context) {
@@ -185,8 +223,31 @@ void LoRa ::disableTransmit_handler(FwIndexType portNum) {
     this->setTransmitState(TransmitState::DISABLING);
 }
 
+void LoRa ::run_handler(FwIndexType portNum, U32 context) {
+    {
+        Os::ScopeLock lock(this->m_mutex);
+        (void)this->updateContinuousWave();
+    }
+    bool recover = false;
+    {
+        // Separate from m_mutex so the rate group is never blocked behind a transmit in progress
+        Os::ScopeLock recoveryLock(this->m_recovery_mutex);
+        if (this->m_recovery_pending) {
+            recover = ((k_uptime_get_32() - this->m_deferred_at_ms) >= LoRaConfig::DEFERRED_TX_RECOVERY_MS) ||
+                      !this->channelBusy();
+            this->m_recovery_pending = !recover;
+        }
+    }
+    // Exactly one recovery SUCCESS per deferral, emitted outside the lock so the retry may resend immediately
+    if (recover) {
+        Fw::Success status = Fw::Success::SUCCESS;
+        this->comStatusOut_out(0, status);
+    }
+}
+
 void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
     FW_ASSERT(data != nullptr);
+    this->m_last_rx_ms.store(k_uptime_get_32());
     const FwSizeType payload_size = static_cast<FwSizeType>(size - sizeof(LoRaConfig::HEADER));
     Fw::Buffer buffer = this->allocate_out(0, payload_size);
     if (buffer.isValid()) {

@@ -53,7 +53,7 @@ module Zephyr {
         @ Continuous wave transmission
         sync command CONTINUOUS_WAVE(seconds: U16)
 
-        @ Rate group port that re-arms receive after a continuous wave
+        @ Rate group port that re-arms receive after a continuous wave and emits the deferred-transmit recovery SUCCESS
         sync input port run: Svc.Sched
 
         @ Set the LoRa carrier frequency in Hz. Rejected outside LoRaConfig::MIN_FREQUENCY..MAX_FREQUENCY;
@@ -103,6 +103,9 @@ module Zephyr {
 
         @ Emitted once when LoRa transmit is first enabled
         output port loraFirstStart: Fw.Signal
+
+        @ Count of transmits deferred because a receive was in progress
+        telemetry TransmitsDeferred: U32 update on change
 
         ###############################################################################
         # Standard AC Ports: Required for Channels, Events, Commands, and Parameters  #

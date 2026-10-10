@@ -10,6 +10,7 @@
 #include "Os/Mutex.hpp"
 #include "fprime-zephyr/Drv/LoRa/LoRaComponentAc.hpp"
 #include <zephyr/drivers/lora.h>
+#include <atomic>
 
 namespace Zephyr {
 
@@ -43,20 +44,27 @@ class LoRa final : public LoRaComponentBase {
     Status enableRx(bool initial=false);
 
   private:
+    //! True when the modem reports a packet reception in progress (false on radios without status support)
+    bool receiveInProgress();
+
+    //! True while a packet is mid-air or within LoRaConfig::RX_HOLDOFF_MS of the last received packet
+    bool channelBusy();
+
     // ----------------------------------------------------------------------
     // Handler implementations for typed input ports
     // ----------------------------------------------------------------------
 
     //! Handler implementation for dataIn
     //!
-    //! Data to be sent on the wire (coming in to the component)
+    //! Data to be sent on the wire; deferred (buffer returned, FAILURE emitted) when a receive is in progress
     void dataIn_handler(FwIndexType portNum,  //!< The port number
                         Fw::Buffer& data,
                         const ComCfg::FrameContext& context) override;
 
     //! Handler implementation for run
     //!
-    //! Re-arms receive once a continuous wave has finished
+    //! Re-arms receive once a continuous wave has finished and emits the recovery SUCCESS owed after a deferred
+    //! transmit once the receive completes or the bound expires
     void run_handler(FwIndexType portNum,  //!< The port number
                      U32 context           //!< The call order
                      ) override;
@@ -131,6 +139,11 @@ class LoRa final : public LoRaComponentBase {
 
     FwSizeType m_bytes_sent = 0;     //!< Total bytes sent telemetry
     FwSizeType m_bytes_received = 0; //!< Total bytes received telemetry
+    U32 m_transmits_deferred = 0;    //!< Total transmits deferred for an in-progress receive
+    bool m_recovery_pending = false; //!< A deferral FAILURE was emitted and its recovery SUCCESS is owed
+    U32 m_deferred_at_ms = 0;        //!< Uptime in ms when the transmit was deferred
+    Os::Mutex m_recovery_mutex;      //!< Guards the deferral state shared between dataIn and run
+    std::atomic<U32> m_last_rx_ms{0};  //!< Uptime in ms of the last received packet
 };
 
 }  // namespace Zephyr
