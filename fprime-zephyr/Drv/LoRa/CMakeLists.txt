@@ -23,6 +23,15 @@ register_fprime_library(
        default_zephyr-config
 )
 
+# Channel RSSI is read through the loramac-node SX127x chip driver when a Semtech SX127x is present
+if(DEFINED ZEPHYR_LORAMAC_NODE_MODULE_DIR)
+    # sx1276.h/sx1272.h pull in the loramac-node board and system headers, as in zephyr/modules/loramac-node
+    target_include_directories(fprime-zephyr_Drv_LoRa PRIVATE
+        "${ZEPHYR_LORAMAC_NODE_MODULE_DIR}/src/radio"
+        "${ZEPHYR_LORAMAC_NODE_MODULE_DIR}/src/boards"
+        "${ZEPHYR_LORAMAC_NODE_MODULE_DIR}/src/system")
+endif()
+
 ### Unit Tests ###
 # register_fprime_ut(
 #     AUTOCODER_INPUTS

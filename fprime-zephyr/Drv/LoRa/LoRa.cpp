@@ -7,7 +7,17 @@
 #include "fprime-zephyr/Drv/LoRa/LoRa.hpp"
 #include "zephyr-config/LoRaCfg.hpp"
 #include <Fw/Logger/Logger.hpp>
+#include <zephyr/kernel.h>
 #include <errno.h>
+#if defined(CONFIG_HAS_SEMTECH_SX1276)
+#include <sx1276/sx1276.h>
+#define SX127xReadRssi SX1276ReadRssi
+#define ZEPHYR_LORA_HAS_RSSI 1
+#elif defined(CONFIG_HAS_SEMTECH_SX1272)
+#include <sx1272/sx1272.h>
+#define SX127xReadRssi SX1272ReadRssi
+#define ZEPHYR_LORA_HAS_RSSI 1
+#endif
 namespace Zephyr {
 
 // Margin past a continuous wave's duration for the driver to release the modem
@@ -80,7 +90,7 @@ LoRa::Status LoRa ::enableTx() {
     const LoRaBandwidth bandwidth = this->paramGet_BANDWIDTH_TX(isValid);
     FW_ASSERT((isValid == Fw::ParamValid::VALID) || (isValid == Fw::ParamValid::DEFAULT), static_cast<FwAssertArgType>(isValid));
 
-    // Disable async receive while in TX mode
+    // Release the idle RxContinuous listen so the driver grants the modem to TX
     int status = lora_recv_async(this->m_lora_device, nullptr, nullptr);
     if (status == 0) {
         // Update BASE_CONFIG in-place to save on stack space
@@ -92,6 +102,18 @@ LoRa::Status LoRa ::enableTx() {
         status = lora_config(this->m_lora_device, &BASE_CONFIG);
     }
     return (status < 0) ? Status::ERROR : Status::SUCCESS;
+}
+
+bool LoRa ::channelEnergyDetected() {
+#if defined(ZEPHYR_LORA_HAS_RSSI)
+    // Instantaneous in-band RSSI from the loramac-node chip driver Zephyr's sx127x.c is built on (Zephyr's own
+    // Radio table leaves Radio.Rssi NULL); one register read plus the band offset
+    const I16 rssi = static_cast<I16>(SX127xReadRssi(MODEM_LORA));
+    this->tlmWrite_ChannelRssi(rssi);
+    return rssi > LoRaConfig::RSSI_BUSY_THRESHOLD_DBM;
+#else
+    return false;
+#endif
 }
 
 LoRa::Status LoRa ::enableRx(bool initial) {
@@ -135,13 +157,56 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     FW_ASSERT(this->m_lora_device != nullptr);
     FW_ASSERT(device_is_ready(this->m_lora_device));
     Fw::Success returnStatus = Fw::Success::FAILURE;
-    if ((this->m_transmit_enabled == TransmitState::ENABLED) && !this->updateContinuousWave()) {
-        returnStatus = this->transmit(data);
-    } else if (this->m_transmit_enabled == TransmitState::DISABLING) {
+    bool deferred = false;
+    if (this->m_transmit_enabled == TransmitState::DISABLING) {
         this->m_transmit_enabled = TransmitState::DISABLED;
+    } else if ((this->m_transmit_enabled == TransmitState::ENABLED) && !this->updateContinuousWave()) {
+        U32 busy_ms = 0;
+        const ChannelState channel = this->checkChannel(busy_ms);
+        if (channel == ChannelState::BUSY) {
+            // Defer: run_handler emits the recovery SUCCESS owed for this FAILURE once the channel clears
+            deferred = true;
+            this->m_transmits_deferred++;
+            this->tlmWrite_TransmitsDeferred(this->m_transmits_deferred);
+        } else if (channel == ChannelState::BUSY_TIMEOUT) {
+            // Energy outlasting any packet is noise or jamming: transmit anyway rather than stay silent
+            this->m_transmits_forced++;
+            this->tlmWrite_TransmitsForced(this->m_transmits_forced);
+            this->log_WARNING_LO_ChannelBusyTimeout(busy_ms);
+            returnStatus = this->transmit(data);
+        } else {
+            this->log_WARNING_LO_ChannelBusyTimeout_ThrottleClear();
+            returnStatus = this->transmit(data);
+        }
     }
     this->dataReturnOut_out(0, data, context);
     this->comStatusOut_out(0, returnStatus);
+    // Arm only after the FAILURE is delivered so the recovery SUCCESS can never overtake it
+    if (deferred) {
+        Os::ScopeLock recoveryLock(this->m_recovery_mutex);
+        this->m_recovery_pending = true;
+    }
+}
+
+LoRa::ChannelState LoRa ::checkChannel(U32& busy_ms) {
+    Os::ScopeLock recoveryLock(this->m_recovery_mutex);
+    busy_ms = 0;
+    if (!this->channelEnergyDetected()) {
+        this->m_busy_wait_active = false;
+        return ChannelState::CLEAR;
+    }
+    const U32 now = k_uptime_get_32();
+    if (!this->m_busy_wait_active) {
+        this->m_busy_wait_active = true;
+        this->m_busy_since_ms = now;
+    }
+    busy_ms = now - this->m_busy_since_ms;
+    if (busy_ms < LoRaConfig::MAX_TX_DEFER_MS) {
+        return ChannelState::BUSY;
+    }
+    // The forced transmit ends this busy episode; the next one starts a fresh clock
+    this->m_busy_wait_active = false;
+    return ChannelState::BUSY_TIMEOUT;
 }
 
 Fw::Success LoRa ::transmit(Fw::Buffer& data) {
@@ -172,11 +237,6 @@ Fw::Success LoRa ::transmit(Fw::Buffer& data) {
     return returnStatus;
 }
 
-void LoRa ::run_handler(FwIndexType portNum, U32 context) {
-    Os::ScopeLock lock(this->m_mutex);
-    (void)this->updateContinuousWave();
-}
-
 void LoRa ::dataReturnIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::FrameContext& context) {
     this->deallocate_out(0, data);
 }
@@ -187,6 +247,38 @@ void LoRa ::enableTransmit_handler(FwIndexType portNum) {
 
 void LoRa ::disableTransmit_handler(FwIndexType portNum) {
     this->setTransmitState(TransmitState::DISABLING);
+}
+
+void LoRa ::run_handler(FwIndexType portNum, U32 context) {
+    {
+        Os::ScopeLock lock(this->m_mutex);
+        (void)this->updateContinuousWave();
+    }
+    bool recover = false;
+    {
+        // Separate from m_mutex so the rate group is never blocked behind a transmit in progress
+        Os::ScopeLock recoveryLock(this->m_recovery_mutex);
+        const bool busy = this->channelEnergyDetected();
+        const bool wait_expired =
+            this->m_busy_wait_active && ((k_uptime_get_32() - this->m_busy_since_ms) >= LoRaConfig::MAX_TX_DEFER_MS);
+        if (this->m_recovery_pending && !busy) {
+            // The channel cleared: the deferred frame may be resent now
+            recover = true;
+        } else if (this->m_recovery_pending && wait_expired) {
+            // Waited the bound: the resend goes out regardless of the energy (dataIn sees BUSY_TIMEOUT)
+            recover = true;
+        } else if (!this->m_recovery_pending && !busy) {
+            // Nothing is waiting and the channel is clear: the busy episode is over, the next starts fresh
+            this->m_busy_wait_active = false;
+        }
+    }
+    // Exactly one recovery SUCCESS per deferral, emitted outside the lock so the retry may resend immediately.
+    // Cleared before the SUCCESS: the resend it releases may be deferred again and re-arm the flag
+    if (recover) {
+        this->m_recovery_pending = false;
+        Fw::Success status = Fw::Success::SUCCESS;
+        this->comStatusOut_out(0, status);
+    }
 }
 
 void LoRa ::receive(U8* data, U16 size, I16 rssi, I8 snr) {
