@@ -205,10 +205,8 @@ LoRa::ChannelState LoRa ::checkChannel(U32& busy_ms) {
     if (!this->channelEnergyDetected()) {
         return ChannelState::CLEAR;
     }
-    if (this->m_defer_state != DeferState::CLEAR) {
-        // In CLEAR no episode has started, so the channel has been busy for 0 ms
-        busy_ms = this->busyElapsedMs();
-    }
+    // A busy channel in a clear state is the start of a new count
+    busy_ms = (this->m_defer_state == DeferState::CLEAR) ? 0 : this->busyElapsedMs();
     if (busy_ms < LoRaConfig::MAX_TX_DEFER_MS) {
         return ChannelState::BUSY;
     }
