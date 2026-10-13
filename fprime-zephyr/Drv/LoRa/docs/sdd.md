@@ -21,6 +21,14 @@ energy, so a released frame is never deferred again by the same busy episode. Ex
 after the `FAILURE` has been delivered so it can never overtake it. No events are emitted on the send path for a
 deferral; deferrals are counted in the `TransmitsDeferred` channel.
 
+The deferral state is one enumeration, `CLEAR -> DEFERRED -> RELEASED -> CLEAR`, shared between `dataIn` and `run`
+under a mutex separate from the transmit mutex (so the rate group never waits behind `lora_send`). The first energy
+sighting in `CLEAR` starts the busy-episode clock; `DEFERRED` is entered by `dataIn` only after the `FAILURE` has been
+delivered, so the recovery `SUCCESS` cannot overtake it; `run` moves to `RELEASED` when it emits that `SUCCESS`; and
+the resend's carrier sense closes the episode back to `CLEAR` whether it transmits, is forced, or is deferred again.
+`RELEASED` exists so the clock survives the release: a resend that meets energy at or past the bound is forced rather
+than starting a new wait.
+
 Energy that persists longer than `MAX_TX_DEFER_MS` cannot be a packet: it is noise or jamming, and deferring to it
 would silence the radio for as long as it lasts (or for ever, if someone floods the channel). Once a transmit has
 been held off that long the frame is sent regardless of RSSI, `TransmitsForced` is incremented and the

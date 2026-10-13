@@ -154,11 +154,17 @@ class LoRa final : public LoRaComponentBase {
     FwSizeType m_bytes_sent = 0;     //!< Total bytes sent telemetry
     FwSizeType m_bytes_received = 0; //!< Total bytes received telemetry
     U32 m_transmits_deferred = 0;    //!< Total transmits deferred for channel energy
-    bool m_recovery_pending = false; //!< A deferral FAILURE was emitted and its recovery SUCCESS is owed
     U32 m_transmits_forced = 0;      //!< Total transmits sent into channel energy persisting longer than MAX_TX_DEFER_MS
-    bool m_busy_wait_active = false; //!< A transmit has been waiting on channel energy since m_busy_since_ms
-    U32 m_busy_since_ms = 0;         //!< Uptime in ms when the current channel-energy wait began
-    Os::Mutex m_recovery_mutex;      //!< Guards the deferral state shared between dataIn and run
+
+    //! Progress of one busy episode: CLEAR -> DEFERRED -> RELEASED -> CLEAR
+    enum class DeferState {
+        CLEAR,     //!< No transmit is waiting on the channel
+        DEFERRED,  //!< A transmit was returned with FAILURE; run owes its recovery SUCCESS (no further dataIn arrives)
+        RELEASED   //!< Recovery SUCCESS sent, resend in flight; the busy clock keeps running so the resend is forced at the bound
+    };
+    DeferState m_defer_state = DeferState::CLEAR;  //!< Shared between dataIn and run under m_recovery_mutex
+    U32 m_busy_since_ms = 0;                       //!< Uptime in ms of the first energy sighting of the busy episode
+    Os::Mutex m_recovery_mutex;                    //!< Guards m_defer_state and m_busy_since_ms
 };
 
 }  // namespace Zephyr
