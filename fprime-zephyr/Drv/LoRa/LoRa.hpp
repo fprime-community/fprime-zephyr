@@ -118,11 +118,16 @@ class LoRa final : public LoRaComponentBase {
         BUSY_TIMEOUT  //!< Channel energy for MAX_TX_DEFER_MS or longer: transmit anyway
     };
 
-    //! Carrier sense for a transmit attempt, tracking how long the channel has carried energy
+    //! Carrier sense for a transmit attempt; reads the deferral state, dataIn alone writes it
     //!
-    //! \param busy_ms: set to the length of the current busy episode in ms (0 when CLEAR)
+    //! \param busy_ms: set to the length of the current busy episode in ms (0 when no episode has started)
     //! \return the channel state deciding the transmit
     ChannelState checkChannel(U32& busy_ms);
+
+    //! Length of the current busy episode
+    //!
+    //! \return ms since the first deferral of the episode (call with m_recovery_mutex held)
+    U32 busyElapsedMs() const;
 
     //! Re-arm receive if the active continuous wave has ended
     //!
@@ -163,7 +168,7 @@ class LoRa final : public LoRaComponentBase {
         RELEASED   //!< Recovery SUCCESS sent, resend in flight; the busy clock keeps running so the resend is forced at the bound
     };
     DeferState m_defer_state = DeferState::CLEAR;  //!< Shared between dataIn and run under m_recovery_mutex
-    U32 m_busy_since_ms = 0;                       //!< Uptime in ms of the first energy sighting of the busy episode
+    U32 m_busy_since_ms = 0;                       //!< Uptime in ms of the first deferral of the busy episode
     Os::Mutex m_recovery_mutex;                    //!< Guards m_defer_state and m_busy_since_ms
 };
 

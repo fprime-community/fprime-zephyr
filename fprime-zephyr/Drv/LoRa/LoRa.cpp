@@ -181,10 +181,21 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     }
     this->dataReturnOut_out(0, data, context);
     this->comStatusOut_out(0, returnStatus);
-    // Enter DEFERRED only after the FAILURE is delivered so the recovery SUCCESS can never overtake it
-    if (deferred) {
+    {
+        // dataIn owns the deferral state; written only after the FAILURE is delivered so the recovery SUCCESS can
+        // never overtake it
         Os::ScopeLock recoveryLock(this->m_recovery_mutex);
-        this->m_defer_state = DeferState::DEFERRED;
+        if (deferred && (this->m_defer_state == DeferState::CLEAR)) {
+            // First deferral of a busy episode starts its clock
+            this->m_busy_since_ms = k_uptime_get_32();
+            this->m_defer_state = DeferState::DEFERRED;
+        } else if (deferred) {
+            // Resend deferred again: the episode clock keeps running
+            this->m_defer_state = DeferState::DEFERRED;
+        } else {
+            // Transmitted, forced, or transmit disabled: the busy episode is over
+            this->m_defer_state = DeferState::CLEAR;
+        }
     }
 }
 
@@ -192,22 +203,21 @@ LoRa::ChannelState LoRa ::checkChannel(U32& busy_ms) {
     Os::ScopeLock recoveryLock(this->m_recovery_mutex);
     busy_ms = 0;
     if (!this->channelEnergyDetected()) {
-        this->m_defer_state = DeferState::CLEAR;
         return ChannelState::CLEAR;
     }
-    const U32 now = k_uptime_get_32();
-    if (this->m_defer_state == DeferState::CLEAR) {
-        // First energy sighting starts the busy episode clock
-        this->m_busy_since_ms = now;
+    if (this->m_defer_state != DeferState::CLEAR) {
+        // In CLEAR no episode has started, so the channel has been busy for 0 ms
+        busy_ms = this->busyElapsedMs();
     }
-    busy_ms = now - this->m_busy_since_ms;
     if (busy_ms < LoRaConfig::MAX_TX_DEFER_MS) {
-        // Deferred; dataIn enters DEFERRED once the FAILURE has been delivered
         return ChannelState::BUSY;
     }
-    // The forced transmit ends this busy episode; the next one starts a fresh clock
-    this->m_defer_state = DeferState::CLEAR;
     return ChannelState::BUSY_TIMEOUT;
+}
+
+U32 LoRa ::busyElapsedMs() const {
+    // Unsigned difference, so the 32-bit uptime wrap does not matter
+    return k_uptime_get_32() - this->m_busy_since_ms;
 }
 
 Fw::Success LoRa ::transmit(Fw::Buffer& data) {
@@ -261,7 +271,7 @@ void LoRa ::run_handler(FwIndexType portNum, U32 context) {
         Os::ScopeLock recoveryLock(this->m_recovery_mutex);
         const bool busy = this->channelEnergyDetected();
         const bool deferred = (this->m_defer_state == DeferState::DEFERRED);
-        const bool wait_expired = (k_uptime_get_32() - this->m_busy_since_ms) >= LoRaConfig::MAX_TX_DEFER_MS;
+        const bool wait_expired = this->busyElapsedMs() >= LoRaConfig::MAX_TX_DEFER_MS;
         if (deferred && !busy) {
             // The channel cleared: the deferred frame may be resent now
             recover = true;
@@ -270,7 +280,7 @@ void LoRa ::run_handler(FwIndexType portNum, U32 context) {
             recover = true;
         }
         if (recover) {
-            // The busy clock keeps running in RELEASED; checkChannel closes the episode when the resend arrives
+            // The busy clock keeps running in RELEASED; dataIn closes the episode when the resend arrives
             this->m_defer_state = DeferState::RELEASED;
         }
     }

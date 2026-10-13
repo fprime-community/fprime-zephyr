@@ -22,10 +22,11 @@ after the `FAILURE` has been delivered so it can never overtake it. No events ar
 deferral; deferrals are counted in the `TransmitsDeferred` channel.
 
 The deferral state is one enumeration, `CLEAR -> DEFERRED -> RELEASED -> CLEAR`, shared between `dataIn` and `run`
-under a mutex separate from the transmit mutex (so the rate group never waits behind `lora_send`). The first energy
-sighting in `CLEAR` starts the busy-episode clock; `DEFERRED` is entered by `dataIn` only after the `FAILURE` has been
-delivered, so the recovery `SUCCESS` cannot overtake it; `run` moves to `RELEASED` when it emits that `SUCCESS`; and
-the resend's carrier sense closes the episode back to `CLEAR` whether it transmits, is forced, or is deferred again.
+under a mutex separate from the transmit mutex (so the rate group never waits behind `lora_send`). `dataIn` owns the
+writes and `run` makes the one `DEFERRED -> RELEASED` move: the first deferral in `CLEAR` starts the busy-episode
+clock and enters `DEFERRED`, written only after the `FAILURE` has been delivered so the recovery `SUCCESS` cannot
+overtake it; `run` moves to `RELEASED` when it emits that `SUCCESS`; and `dataIn` closes the episode back to `CLEAR`
+when the resend transmits or is forced, or re-enters `DEFERRED` (clock kept) when it meets energy again.
 `RELEASED` exists so the clock survives the release: a resend that meets energy at or past the bound is forced rather
 than starting a new wait.
 
