@@ -112,6 +112,11 @@ class LoRa final : public LoRaComponentBase {
     //! \return true while a continuous wave is still active
     bool updateContinuousWave();
 
+    //! Key the radio, send one framed buffer, and return to receive
+    //! \param data: payload to send after LoRaConfig::HEADER
+    //! \return SUCCESS when the frame left the radio
+    Fw::Success transmit(Fw::Buffer& data);
+
     U8 m_send_buffer[LoRa::MAX_PACKET_SIZE];  //!< Buffer for sending data (max LoRa packet size)
     //! Process received data
     //!
