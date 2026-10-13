@@ -136,36 +136,40 @@ void LoRa ::dataIn_handler(FwIndexType portNum, Fw::Buffer& data, const ComCfg::
     FW_ASSERT(device_is_ready(this->m_lora_device));
     Fw::Success returnStatus = Fw::Success::FAILURE;
     if ((this->m_transmit_enabled == TransmitState::ENABLED) && !this->updateContinuousWave()) {
-        Status status = this->enableTx();
-        if (status == Status::SUCCESS) {
-            (void)::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
-            (void)::memcpy(this->m_send_buffer + sizeof(LoRaConfig::HEADER), data.getData(), data.getSize());
-            int send_status =
-                lora_send(this->m_lora_device, this->m_send_buffer, sizeof(LoRaConfig::HEADER) + data.getSize());
-            if (send_status != 0) {
-                this->log_WARNING_HI_SendFailed(static_cast<I32>(send_status));
-                returnStatus = Fw::Success::FAILURE;
-            } else {
-                this->m_bytes_sent += data.getSize();
-                this->tlmWrite_BytesSent(this->m_bytes_sent);
-                returnStatus = Fw::Success::SUCCESS;
-                this->log_WARNING_HI_ConfigurationFailed_ThrottleClear();
-                this->log_WARNING_HI_SendFailed_ThrottleClear();
-            }
-        } else {
-            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Transmit);
-            returnStatus = Fw::Success::FAILURE;
-        }
-        // Enable RX mode after all TXes
-        status = this->enableRx();
-        if (status != Status::SUCCESS) {
-            this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
-        }
+        returnStatus = this->transmit(data);
     } else if (this->m_transmit_enabled == TransmitState::DISABLING) {
         this->m_transmit_enabled = TransmitState::DISABLED;
     }
     this->dataReturnOut_out(0, data, context);
     this->comStatusOut_out(0, returnStatus);
+}
+
+Fw::Success LoRa ::transmit(Fw::Buffer& data) {
+    Fw::Success returnStatus = Fw::Success::FAILURE;
+    Status status = this->enableTx();
+    if (status == Status::SUCCESS) {
+        (void)::memcpy(this->m_send_buffer, LoRaConfig::HEADER, sizeof(LoRaConfig::HEADER));
+        (void)::memcpy(this->m_send_buffer + sizeof(LoRaConfig::HEADER), data.getData(), data.getSize());
+        int send_status =
+            lora_send(this->m_lora_device, this->m_send_buffer, sizeof(LoRaConfig::HEADER) + data.getSize());
+        if (send_status != 0) {
+            this->log_WARNING_HI_SendFailed(static_cast<I32>(send_status));
+        } else {
+            this->m_bytes_sent += data.getSize();
+            this->tlmWrite_BytesSent(this->m_bytes_sent);
+            returnStatus = Fw::Success::SUCCESS;
+            this->log_WARNING_HI_ConfigurationFailed_ThrottleClear();
+            this->log_WARNING_HI_SendFailed_ThrottleClear();
+        }
+    } else {
+        this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Transmit);
+    }
+    // Enable RX mode after all TXes
+    status = this->enableRx();
+    if (status != Status::SUCCESS) {
+        this->log_WARNING_HI_ConfigurationFailed(LoRaMode::Receive);
+    }
+    return returnStatus;
 }
 
 void LoRa ::run_handler(FwIndexType portNum, U32 context) {
