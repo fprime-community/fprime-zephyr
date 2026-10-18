@@ -3,6 +3,7 @@
 // \brief Zephyr implementation for Os::Directory
 // ======================================================================
 #include <Fw/Types/Assert.hpp>
+#include <cerrno>
 #include <Fw/Types/StringUtils.hpp>
 #include <fprime-zephyr/Os/Directory.hpp>
 #include <Os/Posix/error.hpp>
@@ -37,6 +38,22 @@ ZephyrDirectory::Status ZephyrDirectory::open(const char* path, OpenMode mode) {
         }
     }
     // Now attempt to open the directory
+    //
+    // Zephyr's fs_opendir() treats the exact string "/" as the virtual root and enumerates the mount-point table
+    // instead of a filesystem. When a filesystem is mounted at "/" (fstab `mount-point = "/"`), that table holds one
+    // entry with an empty name, so the mounted root directory is unreachable and lists as empty. "//" bypasses the
+    // special case: the longest-prefix mount lookup still resolves to the "/" mount and the filesystem driver strips
+    // the one-character mount prefix, opening the mounted root. If nothing is mounted at "/", fs_opendir("//") fails
+    // with -ENOENT and the virtual root is opened as before.
+    if (path[0] == '/' && path[1] == '\0') {
+        errno_status = ::fs_opendir(&this->m_handle.m_directory_descriptor, "//");
+        if (errno_status != -ENOENT) {
+            if (errno_status != 0) {
+                status = Os::Posix::errno_to_directory_status(-1 * errno_status);
+            }
+            return status;
+        }
+    }
     errno_status = ::fs_opendir(&this->m_handle.m_directory_descriptor, path);
     if (errno_status != 0) {
         status = Os::Posix::errno_to_directory_status(-1 * errno_status);
