@@ -47,12 +47,14 @@ ZephyrDirectory::Status ZephyrDirectory::open(const char* path, OpenMode mode) {
     // with -ENOENT and the virtual root is opened as before.
     if (path[0] == '/' && path[1] == '\0') {
         errno_status = ::fs_opendir(&this->m_handle.m_directory_descriptor, "//");
-        if (errno_status != -ENOENT) {
-            if (errno_status != 0) {
-                status = Os::Posix::errno_to_directory_status(-1 * errno_status);
-            }
-            return status;
+        if (errno_status == 0) {
+            // Filesystem mounted at "/" opened; done
+            return Status::OP_OK;
+        } else if (errno_status != -ENOENT) {
+            // Mounted at "/" but the open failed; report the failure
+            return Os::Posix::errno_to_directory_status(-1 * errno_status);
         }
+        // -ENOENT: nothing mounted at "/", fall through and open Zephyr's virtual root
     }
     errno_status = ::fs_opendir(&this->m_handle.m_directory_descriptor, path);
     if (errno_status != 0) {
