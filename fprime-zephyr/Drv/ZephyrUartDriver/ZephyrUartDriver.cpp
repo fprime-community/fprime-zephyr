@@ -61,9 +61,7 @@ namespace Zephyr {
     {
         struct ring_buf *ring_buf = reinterpret_cast<struct ring_buf *>(user_data);
 
-        if (!uart_irq_update(dev)) {
-            return;
-        }
+        uart_irq_update(dev);
 
         if (!uart_irq_rx_ready(dev)) {
             return;
