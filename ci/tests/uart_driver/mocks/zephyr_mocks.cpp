@@ -40,7 +40,8 @@ extern "C" bool device_is_ready(const struct device*) {
 // --- drivers/uart.h ---
 extern "C" int uart_configure(const struct device*, const struct uart_config* cfg) {
     g_uart.configuredBaud = cfg->baudrate;
-    return 0;
+    g_uart.configuredFlow = cfg->flow_ctrl;
+    return g_uart.configureResult;
 }
 extern "C" int uart_irq_callback_user_data_set(const struct device* dev,
                                                uart_irq_callback_user_data_t cb,

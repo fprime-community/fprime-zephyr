@@ -9,7 +9,7 @@ extern "C" {
 enum uart_config_parity { UART_CFG_PARITY_NONE };
 enum uart_config_stop_bits { UART_CFG_STOP_BITS_1 };
 enum uart_config_data_bits { UART_CFG_DATA_BITS_8 };
-enum uart_config_flow_control { UART_CFG_FLOW_CTRL_NONE };
+enum uart_config_flow_control { UART_CFG_FLOW_CTRL_NONE, UART_CFG_FLOW_CTRL_RTS_CTS };
 enum uart_rx_stop_reason { UART_ERROR_OVERRUN = (1 << 0), UART_ERROR_PARITY = (1 << 1), UART_ERROR_FRAMING = (1 << 2) };
 struct uart_config {
     uint32_t baudrate;
