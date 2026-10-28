@@ -43,20 +43,24 @@ class LoRa final : public LoRaComponentBase {
     Status enableRx(bool initial=false);
 
   private:
+    //! True when in-band RSSI exceeds LoRaConfig::RSSI_BUSY_THRESHOLD_DBM (false on radios without RSSI support)
+    bool channelEnergyDetected();
+
     // ----------------------------------------------------------------------
     // Handler implementations for typed input ports
     // ----------------------------------------------------------------------
 
     //! Handler implementation for dataIn
     //!
-    //! Data to be sent on the wire (coming in to the component)
+    //! Data to be sent on the wire; deferred (buffer returned, FAILURE emitted) when a receive is in progress
     void dataIn_handler(FwIndexType portNum,  //!< The port number
                         Fw::Buffer& data,
                         const ComCfg::FrameContext& context) override;
 
     //! Handler implementation for run
     //!
-    //! Re-arms receive once a continuous wave has finished
+    //! Re-arms receive once a continuous wave has finished and emits the recovery SUCCESS owed after a deferred
+    //! transmit once the receive completes or the bound expires
     void run_handler(FwIndexType portNum,  //!< The port number
                      U32 context           //!< The call order
                      ) override;
@@ -107,10 +111,33 @@ class LoRa final : public LoRaComponentBase {
     void setTransmitState(TransmitState state);
 
   private:
+    //! Result of the pre-transmit carrier sense
+    enum class ChannelState {
+        CLEAR,        //!< No channel energy: transmit
+        BUSY,         //!< Channel energy for less than MAX_TX_DEFER_MS: defer
+        BUSY_TIMEOUT  //!< Channel energy for MAX_TX_DEFER_MS or longer: transmit anyway
+    };
+
+    //! Carrier sense for a transmit attempt; reads the deferral state, dataIn alone writes it
+    //!
+    //! \param busy_ms: set to the length of the current busy episode in ms (0 when no episode has started)
+    //! \return the channel state deciding the transmit
+    ChannelState checkChannel(U32& busy_ms);
+
+    //! Length of the current busy episode
+    //!
+    //! \return ms since the first deferral of the episode (call with m_recovery_mutex held)
+    U32 busyElapsedMs() const;
+
     //! Re-arm receive if the active continuous wave has ended
     //!
     //! \return true while a continuous wave is still active
     bool updateContinuousWave();
+
+    //! Key the radio, send one framed buffer, and return to receive
+    //! \param data: payload to send after LoRaConfig::HEADER
+    //! \return SUCCESS when the frame left the radio
+    Fw::Success transmit(Fw::Buffer& data);
 
     U8 m_send_buffer[LoRa::MAX_PACKET_SIZE];  //!< Buffer for sending data (max LoRa packet size)
     //! Process received data
@@ -131,6 +158,18 @@ class LoRa final : public LoRaComponentBase {
 
     FwSizeType m_bytes_sent = 0;     //!< Total bytes sent telemetry
     FwSizeType m_bytes_received = 0; //!< Total bytes received telemetry
+    U32 m_transmits_deferred = 0;    //!< Total transmits deferred for channel energy
+    U32 m_transmits_forced = 0;      //!< Total transmits sent into channel energy persisting longer than MAX_TX_DEFER_MS
+
+    //! Progress of one busy episode: CLEAR -> DEFERRED -> RELEASED -> CLEAR
+    enum class DeferState {
+        CLEAR,     //!< No transmit is waiting on the channel
+        DEFERRED,  //!< A transmit was returned with FAILURE; run owes its recovery SUCCESS (no further dataIn arrives)
+        RELEASED   //!< Recovery SUCCESS sent, resend in flight; the busy clock keeps running so the resend is forced at the bound
+    };
+    DeferState m_defer_state = DeferState::CLEAR;  //!< Shared between dataIn and run under m_recovery_mutex
+    U32 m_busy_since_ms = 0;                       //!< Uptime in ms of the first deferral of the busy episode
+    Os::Mutex m_recovery_mutex;                    //!< Guards m_defer_state and m_busy_since_ms
 };
 
 }  // namespace Zephyr
