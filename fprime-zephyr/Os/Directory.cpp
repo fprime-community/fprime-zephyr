@@ -19,6 +19,7 @@ DirectoryHandle* ZephyrDirectory::getHandle() {
 }
 
 ZephyrDirectory::Status ZephyrDirectory::open(const char* path, OpenMode mode) {
+
     int errno_status = 0;
     Status status = Status::OP_OK;
 
@@ -41,12 +42,22 @@ ZephyrDirectory::Status ZephyrDirectory::open(const char* path, OpenMode mode) {
     if (errno_status != 0) {
         status = Os::Posix::errno_to_directory_status(-1 * errno_status);
     }
+    this->m_handle.m_path = path;
     return status;
 }
 
+ //! Zephyr's VFS has no rewinddir hook in fs_file_system_t, and the read cursor
+//! lives inside the backend-private object at fs_dir_t::dirp. Close and reopen
+//! is the only portable reset. Reopen READ-only: the directory exists, so
+//! re-running mkdir would fail under CREATE_EXCLUSIVE.
 ZephyrDirectory::Status ZephyrDirectory::rewind() {
-    return ZephyrDirectory::Status::NOT_SUPPORTED;
+    int errno_status = ::fs_closedir(&this->m_handle.m_directory_descriptor);
+    if (errno_status != 0) {
+        return Os::Posix::errno_to_directory_status(-1 * errno_status);
+    }
+    return this->open(this->m_handle.m_path.toChar(), OpenMode::READ);
 }
+
 
 ZephyrDirectory::Status ZephyrDirectory::read(char* fileNameBuffer, FwSizeType bufSize) {
     FW_ASSERT(fileNameBuffer);

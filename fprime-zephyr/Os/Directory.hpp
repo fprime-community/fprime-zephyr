@@ -6,6 +6,7 @@
 #define FPRIME_ZEPHYR_OS_DIRECTORY_HPP
 #include "Os/Directory.hpp"
 #include <zephyr/fs/fs_interface.h>
+#include <Fw/Types/FileNameString.hpp>
 
 namespace Os {
 namespace Zephyr {
@@ -13,6 +14,7 @@ namespace Directory {
 
 struct ZephyrDirectoryHandle : public DirectoryHandle {
     struct fs_dir_t m_directory_descriptor = {};
+    Fw::FileNameString m_path;
 };
 
 //! \brief Zephyr implementation of Os::Directory
