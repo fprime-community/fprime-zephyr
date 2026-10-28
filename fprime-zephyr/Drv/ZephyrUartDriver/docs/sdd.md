@@ -7,11 +7,13 @@ device-agnostic.
 ### Typical Usage
 
 The component is the `comDriver` at the bottom of the F Prime communication stack (`Svc::ComStub` -> `ZephyrUartDriver`).
-The topology calls `configure(dev, baud)` once at start-up. Received bytes are delivered on `recv` in `Fw.Buffer`s obtained
+The topology calls `configure(dev, baud[, flowControl])` once at start-up. Received bytes are delivered on `recv` in `Fw.Buffer`s obtained
 from the `allocate` port (typically `Svc::BufferManager`) and returned via `recvReturnIn`/`deallocate`.
 
 ```cpp
 comDriver.configure(DEVICE_DT_GET(DT_CHOSEN(zephyr_console)), 115200);
+// Hardware UART with RTS/CTS (needs the device's "flowcontrol" pinctrl state):
+// comDriver.configure(DEVICE_DT_GET(DT_NODELABEL(lpuart2)), 115200, UART_CFG_FLOW_CTRL_RTS_CTS);
 // Optional: event-driven receive instead of rate-group polling
 comDriver.start(6 /* priority */, 4096 /* stack */);
 ```
@@ -27,6 +29,7 @@ comDriver.start(6 /* priority */, 4096 /* stack */);
 | UART-RX-05 | When `start()` has been called successfully, a dedicated task woken by the interrupt shall be the only consumer of the RX ring; `schedIn` shall not read the ring. Otherwise `schedIn` shall drain the ring. | Unit test |
 | UART-RX-06 | Hardware overrun indications (`uart_err_check`) and ring put failures shall be counted and reported by a throttled event and telemetry from task context. The interrupt callback shall not log. | Unit test / inspection |
 | UART-RX-07 | All storage shall be in-class; no dynamic allocation shall occur after `start()`. Sizes are compile-time configuration; task priority and stack are supplied by the topology. | Inspection |
+| UART-CFG-01 | `configure()` shall apply the requested flow control mode (default `UART_CFG_FLOW_CTRL_NONE`) with the baud rate, and shall report a rejected non-default mode via `Fw::Logger` without disabling receive. | Unit test |
 | UART-RX-08 | `start()` shall not assert on a missing or not-ready device; it shall return a status and leave the rate-group drain in place. A device without the interrupt-driven UART API shall be reported via `Fw::Logger` at `configure()`. | Unit test |
 | UART-TX-01 | `send` shall copy the whole frame into the software TX ring and return `OP_OK`, or, when the frame does not fit in the ring's free space, write nothing, count the drop and return `OTHER_ERROR`. No partial frame shall ever reach the device. | Unit test |
 | UART-TX-02 | The UART interrupt callback shall move TX ring bytes into the device FIFO with `uart_fifo_fill` and shall disable the TX interrupt when the ring is empty. `send` shall not block on the device. On a device without the interrupt-driven API, `send` shall fall back to the polled write. | Unit test |
@@ -135,7 +138,7 @@ configuration directory):
 | `TX_RING_SIZE` | 2048 | TX ring buffer size in bytes; a frame larger than the free space is rejected whole |
 | `TX_RESUME_THRESHOLD` | 1024 | Free TX ring bytes required to signal `ready` after a rejected frame; must be >= the largest frame sent |
 
-Run-time: `configure(dev, baud)`; optional `start(priority, stackSize)`.
+Run-time: `configure(dev, baud, flowControl = UART_CFG_FLOW_CTRL_NONE)`; optional `start(priority, stackSize)`.
 
 ## Events
 

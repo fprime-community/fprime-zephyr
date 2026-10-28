@@ -40,7 +40,7 @@ ZephyrUartDriver ::ZephyrUartDriver(const char* const compName)
 
 ZephyrUartDriver ::~ZephyrUartDriver() {}
 
-void ZephyrUartDriver ::configure(const struct device* dev, U32 baud_rate) {
+void ZephyrUartDriver ::configure(const struct device* dev, U32 baud_rate, enum uart_config_flow_control flow_control) {
     FW_ASSERT(dev != nullptr);
     FW_ASSERT(this->m_dev == nullptr);  // configure once
 
@@ -55,10 +55,14 @@ void ZephyrUartDriver ::configure(const struct device* dev, U32 baud_rate) {
         .parity = UART_CFG_PARITY_NONE,
         .stop_bits = UART_CFG_STOP_BITS_1,
         .data_bits = UART_CFG_DATA_BITS_8,
-        .flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
+        .flow_ctrl = static_cast<uint8_t>(flow_control),
     };
     // Not supported (-ENOSYS/-ENOTSUP) by every device, e.g. CDC ACM ignores the baud rate
-    (void)uart_configure(this->m_dev, &uart_cfg);
+    const int cfgStatus = uart_configure(this->m_dev, &uart_cfg);
+    if ((cfgStatus != 0) && (flow_control != UART_CFG_FLOW_CTRL_NONE)) {
+        Fw::Logger::log("ZephyrUartDriver: %s rejected flow control mode %d (%d)\n", dev->name,
+                        static_cast<int>(flow_control), cfgStatus);
+    }
 
     // -ENOSYS/-ENOTSUP: device lacks the interrupt-driven API, so receive would never deliver
     const int cbStatus = uart_irq_callback_user_data_set(this->m_dev, serial_cb, this);

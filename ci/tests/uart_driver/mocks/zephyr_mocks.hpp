@@ -14,6 +14,8 @@
 struct MockUart {
     bool deviceReady = true;
     uint32_t configuredBaud = 0;
+    uint8_t configuredFlow = 0xFF;
+    int configureResult = 0;
     const struct device* dev = nullptr;
     int callbackSetResult = 0;  // return of uart_irq_callback_user_data_set (-ENOSYS: no IRQ API)
     uart_irq_callback_user_data_t callback = nullptr;

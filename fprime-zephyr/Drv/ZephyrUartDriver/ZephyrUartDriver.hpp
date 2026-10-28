@@ -56,7 +56,11 @@ class ZephyrUartDriver final : public ZephyrUartDriverComponentBase {
     //! Must be called once from the topology before the rate group runs and before `start()`.
     //! \param dev: Zephyr UART device (hardware UART or CDC ACM instance)
     //! \param baud_rate: baud rate in bits per second (ignored by CDC ACM)
-    void configure(const struct device* dev, U32 baud_rate);
+    //! \param flow_control: flow control mode applied with the baud rate (default: none). A mode the device rejects
+    //!                      is reported via `Fw::Logger`.
+    void configure(const struct device* dev,
+                   U32 baud_rate,
+                   enum uart_config_flow_control flow_control = UART_CFG_FLOW_CTRL_NONE);
 
     //! \brief Start the optional event-driven RX task
     //!

@@ -67,10 +67,29 @@ static void test_configure_enables_rx_and_signals_ready() {
     CHECK(g_uart.callback == &ZephyrUartDriver::serial_cb);
     CHECK(g_uart.userData == &drv);
     CHECK(g_uart.configuredBaud == 115200);
+    CHECK(g_uart.configuredFlow == UART_CFG_FLOW_CTRL_NONE);
     CHECK(g_uart.rxIrqEnabled);
     CHECK(!g_uart.txIrqEnabled);
     CHECK(drv.h_readyCount == 1);
     CHECK(g_sem.initCount == 1);
+}
+
+static void test_configure_flow_control() {
+    std::puts("configure: flow control mode is applied; a rejected mode is logged and RX still starts");
+    resetAll();
+    {
+        ZephyrUartDriver drv("uart");
+        drv.configure(&g_dev, 115200, UART_CFG_FLOW_CTRL_RTS_CTS);
+        CHECK(g_uart.configuredFlow == UART_CFG_FLOW_CTRL_RTS_CTS);
+        CHECK(Fw::Logger::s_logCount == 0);
+    }
+    resetAll();
+    g_uart.configureResult = -ENOTSUP;
+    ZephyrUartDriver drv("uart");
+    drv.configure(&g_dev, 115200, UART_CFG_FLOW_CTRL_RTS_CTS);
+    CHECK(Fw::Logger::s_logCount == 1);
+    CHECK(g_uart.rxIrqEnabled);
+    CHECK(drv.h_readyCount == 1);
 }
 
 static void test_configure_not_ready_device() {
@@ -442,6 +461,7 @@ static void test_recv_return_deallocates() {
 
 int main() {
     test_configure_enables_rx_and_signals_ready();
+    test_configure_flow_control();
     test_configure_not_ready_device();
     test_full_ring_drained_in_one_tick();
     test_backpressure_no_loss();
