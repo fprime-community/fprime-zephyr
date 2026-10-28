@@ -29,7 +29,7 @@ namespace Zephyr {
 
     }
 
-    void ZephyrUartDriver::configure(const struct device *dev, U32 baud_rate) {
+    void ZephyrUartDriver::configure(const struct device *dev, U32 baud_rate, bool flow) {
         FW_ASSERT(dev != nullptr);
         m_dev = dev;
 
@@ -44,6 +44,10 @@ namespace Zephyr {
             .data_bits = UART_CFG_DATA_BITS_8,
             .flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
         };
+
+        if(flow){
+            uart_cfg.flow_ctrl = UART_CFG_FLOW_CTRL_RS485;
+        }
         uart_configure(this->m_dev, &uart_cfg);
 
         ring_buf_init(&this->m_ring_buf, RING_BUF_SIZE, this->m_ring_buf_data);

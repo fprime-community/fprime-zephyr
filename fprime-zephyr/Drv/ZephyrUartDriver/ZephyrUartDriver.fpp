@@ -4,7 +4,7 @@ module Zephyr {
     import Drv.ByteStreamDriver
 
     @ Polled sched-in for reading UART
-    guarded input port schedIn: Svc.Sched
+    sync input port schedIn: Svc.Sched
 
     @Allocate new buffer
     output port allocate: Fw.BufferGet
