@@ -28,7 +28,7 @@ ZephyrSpiDriver ::~ZephyrSpiDriver() {}
 void ZephyrSpiDriver::configure(const struct device *device, spi_config spiConfig){
   FW_ASSERT(device != nullptr);
   // Driver only supports SPI Master mode
-  FW_ASSERT(spiConfig.slave == 0);
+  FW_ASSERT(spiConfig.peripheral == 0);
   this->m_dev = device;
   this->m_spiConfig = spiConfig;
 
