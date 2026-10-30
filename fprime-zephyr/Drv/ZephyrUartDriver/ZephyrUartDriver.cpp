@@ -29,7 +29,7 @@ namespace Zephyr {
 
     }
 
-    void ZephyrUartDriver::configure(const struct device *dev, U32 baud_rate) {
+    void ZephyrUartDriver::configure(const struct device *dev, U32 baud_rate, enum uart_config_flow_control flowControl) {
         FW_ASSERT(dev != nullptr);
         m_dev = dev;
 
@@ -42,7 +42,7 @@ namespace Zephyr {
             .parity = UART_CFG_PARITY_NONE,
             .stop_bits = UART_CFG_STOP_BITS_1,
             .data_bits = UART_CFG_DATA_BITS_8,
-            .flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
+            .flow_ctrl = flowControl,
         };
         uart_configure(this->m_dev, &uart_cfg);
 

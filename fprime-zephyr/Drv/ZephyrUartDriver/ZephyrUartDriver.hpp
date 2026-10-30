@@ -40,7 +40,8 @@ namespace Zephyr {
         //!
         ~ZephyrUartDriver();
 
-        void configure(const struct device *dev, U32 baud_rate);
+        void configure(const struct device *dev, U32 baud_rate,
+                       enum uart_config_flow_control flowControl = UART_CFG_FLOW_CTRL_NONE);
 
     public:
 
