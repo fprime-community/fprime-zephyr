@@ -8,13 +8,16 @@
 #define ZephyrUartDriver_HPP
 
 #include "fprime-zephyr/Drv/ZephyrUartDriver/ZephyrUartDriverComponentAc.hpp"
+#include "zephyr-config/ZephyrUartDriverCfg.hpp"
 
-#include <zephyr/kernel.h>
+#include <Os/Task.hpp>
+
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
+#include <zephyr/kernel.h>
 #include <zephyr/sys/ring_buffer.h>
 
-#define RING_BUF_SIZE 1024
+#include <atomic>
 
 namespace Zephyr {
 
@@ -75,10 +78,19 @@ namespace Zephyr {
 
         const struct device *m_dev;
 
-        U8 m_ring_buf_data[RING_BUF_SIZE];
-        struct ring_buf m_ring_buf;
-    };
+    std::atomic<U32> m_rxAllocFails;  //!< Drain stalls for lack of an Fw::Buffer (drain writes, schedIn reads)
+    U32 m_rxOverrunsReported;         //!< Overruns already reported via event (schedIn context only)
 
-} // end namespace Zephyr
+    struct ring_buf m_txRing;                            //!< TX ring (producer: send, consumer: ISR)
+    U8 m_txRingData[ZephyrUartDriverCfg::TX_RING_SIZE];  //!< TX ring storage
+
+    std::atomic<bool> m_txStalled;      //!< A frame was rejected; `ready` owed once the ring recovers
+    std::atomic<U32> m_txBytes;         //!< Bytes moved from the TX ring into the device
+    std::atomic<U32> m_txDrops;         //!< Frames rejected by send (send writes, schedIn reads)
+    std::atomic<U32> m_txLastDropSize;  //!< Size of the most recently rejected frame
+    U32 m_txDropsReported;              //!< Drops already reported via event (schedIn context only)
+};
+
+}  // end namespace Zephyr
 
 #endif
