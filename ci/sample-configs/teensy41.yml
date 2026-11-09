@@ -49,6 +49,9 @@ command-line-options:
   unframed-output: /tmp/unframed
 
 # Plugin required keys
+# The reference deployment instantiates Zephyr.ZephyrTouchReset: a 134 baud touch on the CDC ACM port drops the running
+# image into HalfKay so teensy_loader_cli -w does not depend on the board having rebooted into the bootloader already
+touch-baud: 134
 flash-command:
   - teensy_loader_cli
   - --mcu=teensy41
