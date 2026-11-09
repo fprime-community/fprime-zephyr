@@ -4,7 +4,7 @@
 ####
 # Stage 1: Download the Zephyr SDK
 FROM ubuntu:24.04 AS zephyr-sdk-download
-ARG ZEPHYR_SDK_VERSION=0.17.1
+ARG ZEPHYR_SDK_VERSION=1.0.1
 ARG TARGETPLATFORM
 
 RUN apt-get -y update && apt-get -y install --no-install-recommends \
@@ -19,7 +19,7 @@ RUN /tmp/install-zephyr-sdk "${ZEPHYR_SDK_VERSION}" "${TARGETPLATFORM}"
 
 # Stage 2: Run SDK setup.sh
 FROM ubuntu:24.04 AS zephyr-sdk-setup
-ARG ZEPHYR_SDK_VERSION=0.17.1
+ARG ZEPHYR_SDK_VERSION=1.0.1
 COPY --from=zephyr-sdk-download /opt/zephyr-sdk-${ZEPHYR_SDK_VERSION} /opt/zephyr-sdk-${ZEPHYR_SDK_VERSION}
 
 RUN apt-get -y update && apt-get -y install --no-install-recommends \
@@ -30,11 +30,11 @@ RUN apt-get -y update && apt-get -y install --no-install-recommends \
         wget \
         xz-utils && \
     rm -rf /var/lib/apt/lists/*
-RUN yes | /opt/zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh
+RUN /opt/zephyr-sdk-${ZEPHYR_SDK_VERSION}/setup.sh -h -c
 
 # Stage 3: Assemble Zephyr Build Container from parts
 FROM ubuntu:24.04
-ARG ZEPHYR_SDK_VERSION=0.17.1
+ARG ZEPHYR_SDK_VERSION=1.0.1
 
 # Base requirements for an F Prime build not provided by requirements.txt
 RUN apt-get -y update && apt-get -y install --no-install-recommends \

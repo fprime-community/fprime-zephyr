@@ -14,7 +14,7 @@ module Zephyr {
         CR_4_7 = 3
         CR_4_8 = 4
     }
-    @ Values match zephyr's enum lora_signal_bandwidth (kHz), which LoRa.cpp casts directly into
+    @ Values match Zephyr >= 4.4.0's enum lora_signal_bandwidth (kHz), which LoRa.cpp casts directly into
     enum LoRaBandwidth : U16 {
         BW_125_KHZ = 125
         BW_250_KHZ = 250
@@ -53,7 +53,7 @@ module Zephyr {
         @ Continuous wave transmission
         sync command CONTINUOUS_WAVE(seconds: U16)
 
-        @ Rate group port that re-arms receive after a continuous wave
+        @ Rate group port that re-arms receive after a continuous wave and emits the deferred-transmit recovery SUCCESS
         sync input port run: Svc.Sched
 
         @ Set the LoRa carrier frequency in Hz. Rejected outside LoRaConfig::MIN_FREQUENCY..MAX_FREQUENCY;
@@ -80,6 +80,11 @@ module Zephyr {
             format "LoRa frequency set to {} Hz"
 
         @ Event to indicate allocation failure
+        @ Channel energy persisted longer than MAX_TX_DEFER_MS (noise or jamming); the transmit was sent anyway
+        event ChannelBusyTimeout(busy_ms: U32) severity warning low \
+            format "Channel busy for {} ms, transmitting anyway" \
+            throttle 5
+
         event AllocationFailed(allocation_size: FwSizeType) severity warning high \
             format "Failed to allocate buffer of: {} bytes" throttle 2
 
@@ -95,6 +100,9 @@ module Zephyr {
         @ Last received SNR
         telemetry LastSnr: I8 update on change
 
+        @ In-band RSSI (dBm) sampled before each transmit and on each run tick: the noise floor when the channel is idle
+        telemetry ChannelRssi: I16 update on change
+
         @ Enable LoRa transmission
         sync input port enableTransmit: Fw.Signal
 
@@ -103,6 +111,12 @@ module Zephyr {
 
         @ Emitted once when LoRa transmit is first enabled
         output port loraFirstStart: Fw.Signal
+
+        @ Count of transmits deferred because the channel carried energy above RSSI_BUSY_THRESHOLD_DBM
+        telemetry TransmitsDeferred: U32 update on change
+
+        @ Count of transmits sent into channel energy that persisted longer than MAX_TX_DEFER_MS (noise or jamming)
+        telemetry TransmitsForced: U32 update on change
 
         ###############################################################################
         # Standard AC Ports: Required for Channels, Events, Commands, and Parameters  #
