@@ -122,9 +122,8 @@ void ZephyrUartDriver ::serial_cb(const struct device* dev, void* user_data) {
     if ((self == nullptr) || (dev == nullptr) || (self->m_dev != dev)) {
         return;
     }
-    if (uart_irq_update(dev) != 1) {
-        return;
-    }
+    // Return value ignored: it is void from Zephyr 4.5, and the ready checks below gate all work
+    (void)uart_irq_update(dev);
 
     bool received = false;
     if (uart_irq_rx_ready(dev) > 0) {
@@ -151,8 +150,7 @@ bool ZephyrUartDriver ::isrReceive() {
     // takes at most two claims and the third returns 0
     for (FwSizeType i = 0; i < MAX_ISR_CLAIMS; i++) {
         U8* dst = nullptr;
-        const FwSizeType claimed =
-            ring_buf_put_claim(&this->m_rxRing, &dst, static_cast<uint32_t>(ZephyrUartDriverCfg::RX_RING_SIZE));
+        const FwSizeType claimed = ring_buf_put_ptr(&this->m_rxRing, &dst, 0);
         if (claimed == 0) {
             // Ring full: stop reading so the device (or the USB host) holds the data instead
             uart_irq_rx_disable(this->m_dev);
@@ -162,14 +160,9 @@ bool ZephyrUartDriver ::isrReceive() {
         }
         const int read = uart_fifo_read(this->m_dev, dst, static_cast<int>(claimed));
         if (read <= 0) {
-            (void)ring_buf_put_finish(&this->m_rxRing, 0);
             break;
         }
-        if (ring_buf_put_finish(&this->m_rxRing, static_cast<uint32_t>(read)) != 0) {
-            // Cannot happen (read <= claimed); treat as lost data rather than trusting the ring
-            this->m_rxOverruns++;
-            break;
-        }
+        ring_buf_commit(&this->m_rxRing, static_cast<size_t>(read));
         this->m_rxBytes += static_cast<U32>(read);
         received = true;
         if (static_cast<FwSizeType>(read) < claimed) {
@@ -184,22 +177,17 @@ void ZephyrUartDriver ::isrTransmit() {
     // ring takes at most two claims and the third returns 0
     for (FwSizeType i = 0; i < MAX_ISR_CLAIMS; i++) {
         U8* src = nullptr;
-        const FwSizeType claimed =
-            ring_buf_get_claim(&this->m_txRing, &src, static_cast<uint32_t>(ZephyrUartDriverCfg::TX_RING_SIZE));
+        const FwSizeType claimed = ring_buf_get_ptr(&this->m_txRing, &src, 0);
         if (claimed == 0) {
             // Nothing left to send: silence the TX interrupt until the next send()
             uart_irq_tx_disable(this->m_dev);
-            (void)ring_buf_get_finish(&this->m_txRing, 0);
             return;
         }
         const int filled = uart_fifo_fill(this->m_dev, src, static_cast<int>(claimed));
         if (filled <= 0) {
-            (void)ring_buf_get_finish(&this->m_txRing, 0);
             return;  // device FIFO full, the interrupt fires again when it drains
         }
-        if (ring_buf_get_finish(&this->m_txRing, static_cast<uint32_t>(filled)) != 0) {
-            return;  // cannot happen (filled <= claimed)
-        }
+        ring_buf_consume(&this->m_txRing, static_cast<size_t>(filled));
         this->m_txBytes += static_cast<U32>(filled);
         if (static_cast<FwSizeType>(filled) < claimed) {
             return;  // device FIFO full
