@@ -122,9 +122,8 @@ void ZephyrUartDriver ::serial_cb(const struct device* dev, void* user_data) {
     if ((self == nullptr) || (dev == nullptr) || (self->m_dev != dev)) {
         return;
     }
-    if (uart_irq_update(dev) != 1) {
-        return;
-    }
+    // Return value ignored: it is void from Zephyr 4.5, and the ready checks below gate all work
+    (void)uart_irq_update(dev);
 
     bool received = false;
     if (uart_irq_rx_ready(dev) > 0) {
