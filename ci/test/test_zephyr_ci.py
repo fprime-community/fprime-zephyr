@@ -3,9 +3,12 @@ import importlib
 import logging
 import sys
 import types
+from pathlib import Path
 from unittest import mock
 
 import pytest
+
+from fprime_zephyr.touch import TEENSY_TOUCH_BAUD
 
 
 @pytest.fixture
@@ -80,3 +83,20 @@ def test_preload_without_touch_baud_does_not_touch(zephyr_ci, tmp_path):
         plugin.preload({"flash-command": ["true"]})
     touch_mock.assert_not_called()
     plugin.subprocess.assert_called_once_with(["true"])
+
+
+SAMPLE_CONFIGS = Path(__file__).resolve().parent.parent / "sample-configs"
+
+
+def test_teensy41_sample_config_touches_at_teensy_baud():
+    yaml = pytest.importorskip("yaml")
+    config = yaml.safe_load((SAMPLE_CONFIGS / "teensy41.yml").read_text())
+    assert config["touch-baud"] == TEENSY_TOUCH_BAUD
+    assert config["flash-command"][0] == "teensy_loader_cli"
+
+
+def test_pico2_sample_config_flashes_over_debug_probe_without_touch():
+    yaml = pytest.importorskip("yaml")
+    config = yaml.safe_load((SAMPLE_CONFIGS / "pico2.yml").read_text())
+    assert "touch-baud" not in config
+    assert config["flash-command"][0] == "openocd"
